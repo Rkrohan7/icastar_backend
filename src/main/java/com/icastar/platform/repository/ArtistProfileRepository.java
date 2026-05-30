@@ -70,4 +70,8 @@ public interface ArtistProfileRepository extends JpaRepository<ArtistProfile, Lo
            "LOWER(ap.skills) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
            "LOWER(ap.bio) LIKE LOWER(CONCAT('%', :searchTerm, '%'))")
     List<ArtistProfile> findBySearchTerm(@Param("searchTerm") String searchTerm);
+
+    // Count methods for Super Admin
+    @Query("SELECT COUNT(ap) FROM ArtistProfile ap WHERE ap.artistType.id = :artistTypeId")
+    Long countByArtistTypeId(@Param("artistTypeId") Long artistTypeId);
 }
