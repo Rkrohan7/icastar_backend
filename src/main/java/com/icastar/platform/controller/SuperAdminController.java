@@ -2,7 +2,9 @@ package com.icastar.platform.controller;
 
 import com.icastar.platform.dto.superadmin.*;
 import com.icastar.platform.entity.Job;
+import com.icastar.platform.entity.User;
 import com.icastar.platform.service.SuperAdminService;
+import com.icastar.platform.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -16,10 +18,12 @@ import org.springframework.data.domain.Sort;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @Slf4j
@@ -31,6 +35,7 @@ import java.util.Map;
 public class SuperAdminController {
 
     private final SuperAdminService superAdminService;
+    private final UserService userService;
 
     // ==================== DASHBOARD APIs ====================
 
@@ -533,6 +538,505 @@ public class SuperAdminController {
         Map<String, Object> response = new HashMap<>();
         response.put("success", true);
         response.put("data", stats);
+
+        return ResponseEntity.ok(response);
+    }
+
+    // ==================== AUDITION APIs ====================
+
+    @GetMapping("/auditions")
+    @Operation(summary = "Get All Auditions", description = "Get all auditions with pagination")
+    public ResponseEntity<Map<String, Object>> getAllAuditions(
+            @Parameter(description = "Page number") @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Page size") @RequestParam(defaultValue = "20") int size,
+            @Parameter(description = "Sort by field") @RequestParam(defaultValue = "createdAt") String sortBy,
+            @Parameter(description = "Sort direction") @RequestParam(defaultValue = "DESC") String sortDir,
+            @Parameter(description = "Status filter") @RequestParam(required = false) String status,
+            @Parameter(description = "Type filter") @RequestParam(required = false) String type) {
+
+        log.info("Fetching all auditions - page: {}, size: {}", page, size);
+
+        Sort sort = sortDir.equalsIgnoreCase("ASC") ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        Page<SuperAdminAuditionDto> auditions = superAdminService.getAllAuditions(pageable, status, type);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("message", "Auditions retrieved successfully");
+        response.put("data", auditions.getContent());
+        response.put("currentPage", auditions.getNumber());
+        response.put("totalItems", auditions.getTotalElements());
+        response.put("totalPages", auditions.getTotalPages());
+
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/auditions/{id}")
+    @Operation(summary = "Get Audition Details", description = "Get detailed information of a specific audition")
+    public ResponseEntity<Map<String, Object>> getAuditionDetails(@PathVariable Long id) {
+        log.info("Fetching audition details for id: {}", id);
+
+        try {
+            SuperAdminAuditionDto audition = superAdminService.getAuditionById(id);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Audition details retrieved successfully");
+            response.put("data", audition);
+
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+
+    @PatchMapping("/auditions/{id}/status")
+    @Operation(summary = "Update Audition Status", description = "Update the status of an audition")
+    public ResponseEntity<Map<String, Object>> updateAuditionStatus(
+            @PathVariable Long id,
+            @RequestBody SuperAdminAuditionDto.UpdateStatusRequest request) {
+        log.info("Updating audition status for id: {}", id);
+
+        try {
+            SuperAdminAuditionDto audition = superAdminService.updateAuditionStatus(id, request);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Audition status updated successfully");
+            response.put("data", audition);
+
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+
+    // ==================== JOB APPROVAL APIs ====================
+
+    @GetMapping("/jobs/pending-approval")
+    @Operation(summary = "Get Jobs Pending Approval", description = "Get all jobs pending approval")
+    public ResponseEntity<Map<String, Object>> getJobsPendingApproval(
+            @Parameter(description = "Page number") @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Page size") @RequestParam(defaultValue = "20") int size,
+            @Parameter(description = "Sort by field") @RequestParam(defaultValue = "createdAt") String sortBy,
+            @Parameter(description = "Sort direction") @RequestParam(defaultValue = "DESC") String sortDir) {
+
+        log.info("Fetching jobs pending approval - page: {}, size: {}", page, size);
+
+        Sort sort = sortDir.equalsIgnoreCase("ASC") ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        Page<JobApprovalDto> jobs = superAdminService.getJobsForApproval(pageable);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("message", "Jobs pending approval retrieved successfully");
+        response.put("data", jobs.getContent());
+        response.put("currentPage", jobs.getNumber());
+        response.put("totalItems", jobs.getTotalElements());
+        response.put("totalPages", jobs.getTotalPages());
+
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/jobs/{id}/approve")
+    @Operation(summary = "Approve Job", description = "Approve a job posting")
+    public ResponseEntity<Map<String, Object>> approveJob(@PathVariable Long id, Authentication authentication) {
+        log.info("Approving job with id: {}", id);
+
+        try {
+            User approver = userService.getCurrentUser(authentication);
+            JobApprovalDto job = superAdminService.approveJob(id, approver);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Job approved successfully");
+            response.put("data", job);
+
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+
+    @PostMapping("/jobs/{id}/reject")
+    @Operation(summary = "Reject Job", description = "Reject a job posting")
+    public ResponseEntity<Map<String, Object>> rejectJob(
+            @PathVariable Long id,
+            @Valid @RequestBody JobApprovalDto.RejectJobRequest request,
+            Authentication authentication) {
+        log.info("Rejecting job with id: {}", id);
+
+        try {
+            User rejector = userService.getCurrentUser(authentication);
+            JobApprovalDto job = superAdminService.rejectJob(id, rejector, request.getReason());
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Job rejected successfully");
+            response.put("data", job);
+
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+
+    // ==================== JOB APPLICATIONS APIs ====================
+
+    @GetMapping("/job-applications")
+    @Operation(summary = "Get All Job Applications", description = "Get all job applications with pagination")
+    public ResponseEntity<Map<String, Object>> getAllJobApplications(
+            @Parameter(description = "Page number") @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Page size") @RequestParam(defaultValue = "20") int size,
+            @Parameter(description = "Sort by field") @RequestParam(defaultValue = "createdAt") String sortBy,
+            @Parameter(description = "Sort direction") @RequestParam(defaultValue = "DESC") String sortDir,
+            @Parameter(description = "Status filter") @RequestParam(required = false) String status) {
+
+        log.info("Fetching all job applications - page: {}, size: {}", page, size);
+
+        Sort sort = sortDir.equalsIgnoreCase("ASC") ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        Page<SuperAdminJobApplicationDto> applications = superAdminService.getAllJobApplications(pageable, status);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("message", "Job applications retrieved successfully");
+        response.put("data", applications.getContent());
+        response.put("currentPage", applications.getNumber());
+        response.put("totalItems", applications.getTotalElements());
+        response.put("totalPages", applications.getTotalPages());
+
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/job-applications/{id}")
+    @Operation(summary = "Get Job Application Details", description = "Get detailed information of a specific job application")
+    public ResponseEntity<Map<String, Object>> getJobApplicationDetails(@PathVariable Long id) {
+        log.info("Fetching job application details for id: {}", id);
+
+        try {
+            SuperAdminJobApplicationDto application = superAdminService.getJobApplicationById(id);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Job application details retrieved successfully");
+            response.put("data", application);
+
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+
+    // ==================== AUDITION APPLICATIONS APIs ====================
+
+    @GetMapping("/audition-applications")
+    @Operation(summary = "Get All Audition Applications", description = "Get all casting call/audition applications")
+    public ResponseEntity<Map<String, Object>> getAllAuditionApplications(
+            @Parameter(description = "Page number") @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Page size") @RequestParam(defaultValue = "20") int size,
+            @Parameter(description = "Sort by field") @RequestParam(defaultValue = "createdAt") String sortBy,
+            @Parameter(description = "Sort direction") @RequestParam(defaultValue = "DESC") String sortDir,
+            @Parameter(description = "Status filter") @RequestParam(required = false) String status) {
+
+        log.info("Fetching all audition applications - page: {}, size: {}", page, size);
+
+        Sort sort = sortDir.equalsIgnoreCase("ASC") ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        Page<SuperAdminJobApplicationDto> applications = superAdminService.getAllAuditionApplications(pageable, status);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("message", "Audition applications retrieved successfully");
+        response.put("data", applications.getContent());
+        response.put("currentPage", applications.getNumber());
+        response.put("totalItems", applications.getTotalElements());
+        response.put("totalPages", applications.getTotalPages());
+
+        return ResponseEntity.ok(response);
+    }
+
+    // ==================== INTERVIEWS APIs ====================
+
+    @GetMapping("/interviews")
+    @Operation(summary = "Get All Interviews", description = "Get all scheduled interviews")
+    public ResponseEntity<Map<String, Object>> getAllInterviews(
+            @Parameter(description = "Page number") @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Page size") @RequestParam(defaultValue = "20") int size,
+            @Parameter(description = "Sort by field") @RequestParam(defaultValue = "interviewScheduledAt") String sortBy,
+            @Parameter(description = "Sort direction") @RequestParam(defaultValue = "ASC") String sortDir) {
+
+        log.info("Fetching all interviews - page: {}, size: {}", page, size);
+
+        Sort sort = sortDir.equalsIgnoreCase("ASC") ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        Page<SuperAdminInterviewDto> interviews = superAdminService.getAllInterviews(pageable);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("message", "Interviews retrieved successfully");
+        response.put("data", interviews.getContent());
+        response.put("currentPage", interviews.getNumber());
+        response.put("totalItems", interviews.getTotalElements());
+        response.put("totalPages", interviews.getTotalPages());
+
+        return ResponseEntity.ok(response);
+    }
+
+    // ==================== ARTIST PORTFOLIO APIs ====================
+
+    @GetMapping("/artists/{id}/portfolio")
+    @Operation(summary = "Get Artist Portfolio", description = "Get complete portfolio of a specific artist")
+    public ResponseEntity<Map<String, Object>> getArtistPortfolio(@PathVariable Long id) {
+        log.info("Fetching artist portfolio for id: {}", id);
+
+        try {
+            SuperAdminArtistPortfolioDto portfolio = superAdminService.getArtistPortfolio(id);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Artist portfolio retrieved successfully");
+            response.put("data", portfolio);
+
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+
+    // ==================== REPORT CONTENT APIs ====================
+
+    @GetMapping("/report-content")
+    @Operation(summary = "Get All Reports", description = "Get all content reports with pagination")
+    public ResponseEntity<Map<String, Object>> getAllReportContent(
+            @Parameter(description = "Page number") @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Page size") @RequestParam(defaultValue = "20") int size,
+            @Parameter(description = "Sort by field") @RequestParam(defaultValue = "createdAt") String sortBy,
+            @Parameter(description = "Sort direction") @RequestParam(defaultValue = "DESC") String sortDir,
+            @Parameter(description = "Status filter") @RequestParam(required = false) String status,
+            @Parameter(description = "Priority filter") @RequestParam(required = false) String priority) {
+
+        log.info("Fetching all reports - page: {}, size: {}", page, size);
+
+        Sort sort = sortDir.equalsIgnoreCase("ASC") ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        Page<SuperAdminReportContentDto> reports = superAdminService.getAllReports(pageable, status, priority);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("message", "Reports retrieved successfully");
+        response.put("data", reports.getContent());
+        response.put("currentPage", reports.getNumber());
+        response.put("totalItems", reports.getTotalElements());
+        response.put("totalPages", reports.getTotalPages());
+
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/report-content/{id}")
+    @Operation(summary = "Get Report Details", description = "Get detailed information of a specific report")
+    public ResponseEntity<Map<String, Object>> getReportDetails(@PathVariable Long id) {
+        log.info("Fetching report details for id: {}", id);
+
+        try {
+            SuperAdminReportContentDto report = superAdminService.getReportById(id);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Report details retrieved successfully");
+            response.put("data", report);
+
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+
+    @PatchMapping("/report-content/{id}/review")
+    @Operation(summary = "Review Report", description = "Review and take action on a report")
+    public ResponseEntity<Map<String, Object>> reviewReport(
+            @PathVariable Long id,
+            @Valid @RequestBody SuperAdminReportContentDto.ReviewReportRequest request,
+            Authentication authentication) {
+        log.info("Reviewing report with id: {}", id);
+
+        try {
+            User reviewer = userService.getCurrentUser(authentication);
+            SuperAdminReportContentDto report = superAdminService.reviewReport(id, request, reviewer);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Report reviewed successfully");
+            response.put("data", report);
+
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+
+    // ==================== CATEGORIES APIs ====================
+
+    @GetMapping("/categories")
+    @Operation(summary = "Get All Categories", description = "Get all artist type categories")
+    public ResponseEntity<Map<String, Object>> getAllCategories(
+            @Parameter(description = "Page number") @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Page size") @RequestParam(defaultValue = "20") int size,
+            @Parameter(description = "Sort by field") @RequestParam(defaultValue = "sortOrder") String sortBy,
+            @Parameter(description = "Sort direction") @RequestParam(defaultValue = "ASC") String sortDir) {
+
+        log.info("Fetching all categories - page: {}, size: {}", page, size);
+
+        Sort sort = sortDir.equalsIgnoreCase("ASC") ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        Page<SuperAdminCategoryDto> categories = superAdminService.getAllCategories(pageable);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("message", "Categories retrieved successfully");
+        response.put("data", categories.getContent());
+        response.put("currentPage", categories.getNumber());
+        response.put("totalItems", categories.getTotalElements());
+        response.put("totalPages", categories.getTotalPages());
+
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/categories/{id}")
+    @Operation(summary = "Get Category Details", description = "Get detailed information of a specific category")
+    public ResponseEntity<Map<String, Object>> getCategoryDetails(@PathVariable Long id) {
+        log.info("Fetching category details for id: {}", id);
+
+        try {
+            SuperAdminCategoryDto category = superAdminService.getCategoryById(id);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Category details retrieved successfully");
+            response.put("data", category);
+
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+
+    @PostMapping("/categories")
+    @Operation(summary = "Create Category", description = "Create a new artist type category")
+    public ResponseEntity<Map<String, Object>> createCategory(
+            @Valid @RequestBody SuperAdminCategoryDto.CreateCategoryRequest request) {
+        log.info("Creating new category: {}", request.getName());
+
+        try {
+            SuperAdminCategoryDto category = superAdminService.createCategory(request);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Category created successfully");
+            response.put("data", category);
+
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+
+    @PutMapping("/categories/{id}")
+    @Operation(summary = "Update Category", description = "Update an existing category")
+    public ResponseEntity<Map<String, Object>> updateCategory(
+            @PathVariable Long id,
+            @RequestBody SuperAdminCategoryDto.UpdateCategoryRequest request) {
+        log.info("Updating category with id: {}", id);
+
+        try {
+            SuperAdminCategoryDto category = superAdminService.updateCategory(id, request);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Category updated successfully");
+            response.put("data", category);
+
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+
+    @DeleteMapping("/categories/{id}")
+    @Operation(summary = "Delete Category", description = "Delete a category")
+    public ResponseEntity<Map<String, Object>> deleteCategory(@PathVariable Long id) {
+        log.info("Deleting category with id: {}", id);
+
+        try {
+            superAdminService.deleteCategory(id);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Category deleted successfully");
+
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+
+    // ==================== SKILLS APIs ====================
+
+    @GetMapping("/skills")
+    @Operation(summary = "Get All Skills", description = "Get all skills used by artists and jobs")
+    public ResponseEntity<Map<String, Object>> getAllSkills() {
+        log.info("Fetching all skills");
+
+        List<SuperAdminSkillDto> skills = superAdminService.getAllSkills();
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("message", "Skills retrieved successfully");
+        response.put("data", skills);
+        response.put("totalItems", skills.size());
 
         return ResponseEntity.ok(response);
     }
