@@ -6,9 +6,11 @@ import com.icastar.platform.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,6 +34,243 @@ public class SuperAdminService {
     private final HireRequestRepository hireRequestRepository;
     private final CastingCallRepository castingCallRepository;
     private final ArtistTypeRepository artistTypeRepository;
+    private final PasswordEncoder passwordEncoder;
+
+    // ==================== ADMIN USER MANAGEMENT ====================
+
+    /**
+     * Get all admin users with pagination
+     */
+    @Transactional(readOnly = true)
+    public Page<AdminUserDto> getAllAdmins(Pageable pageable, String search, String status) {
+        log.info("Fetching all admins - search: {}, status: {}", search, status);
+
+        List<User> admins = userRepository.findByRole(User.UserRole.ADMIN);
+
+        // Apply search filter
+        if (search != null && !search.isEmpty()) {
+            String searchLower = search.toLowerCase();
+            admins = admins.stream()
+                    .filter(u -> (u.getFirstName() != null && u.getFirstName().toLowerCase().contains(searchLower)) ||
+                                 (u.getLastName() != null && u.getLastName().toLowerCase().contains(searchLower)) ||
+                                 (u.getEmail() != null && u.getEmail().toLowerCase().contains(searchLower)))
+                    .collect(Collectors.toList());
+        }
+
+        // Apply status filter
+        if (status != null && !status.isEmpty()) {
+            try {
+                User.AccountStatus accountStatus = User.AccountStatus.valueOf(status.toUpperCase());
+                admins = admins.stream()
+                        .filter(u -> u.getAccountStatus() == accountStatus)
+                        .collect(Collectors.toList());
+            } catch (IllegalArgumentException e) {
+                log.warn("Invalid account status: {}", status);
+            }
+        }
+
+        // Convert to DTOs
+        List<AdminUserDto> adminDtos = admins.stream()
+                .map(this::mapToAdminDto)
+                .collect(Collectors.toList());
+
+        // Apply pagination
+        int start = (int) pageable.getOffset();
+        int end = Math.min(start + pageable.getPageSize(), adminDtos.size());
+        List<AdminUserDto> pagedAdmins = start < adminDtos.size() ? adminDtos.subList(start, end) : Collections.emptyList();
+
+        return new PageImpl<>(pagedAdmins, pageable, adminDtos.size());
+    }
+
+    /**
+     * Get admin by ID
+     */
+    @Transactional(readOnly = true)
+    public AdminUserDto getAdminById(Long id) {
+        log.info("Fetching admin with id: {}", id);
+
+        User admin = userRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Admin not found with id: " + id));
+
+        if (admin.getRole() != User.UserRole.ADMIN) {
+            throw new RuntimeException("User is not an admin");
+        }
+
+        return mapToAdminDto(admin);
+    }
+
+    /**
+     * Create new admin user
+     */
+    @Transactional
+    public AdminUserDto createAdmin(AdminUserDto.CreateAdminRequest request) {
+        log.info("Creating new admin with email: {}", request.getEmail());
+
+        // Check if email already exists
+        if (userRepository.findByEmail(request.getEmail()).isPresent()) {
+            throw new RuntimeException("Email already exists: " + request.getEmail());
+        }
+
+        // Check if mobile already exists
+        if (userRepository.findByMobile(request.getMobile()).isPresent()) {
+            throw new RuntimeException("Mobile already exists: " + request.getMobile());
+        }
+
+        User admin = new User();
+        admin.setFirstName(request.getFirstName());
+        admin.setLastName(request.getLastName());
+        admin.setEmail(request.getEmail());
+        admin.setMobile(request.getMobile());
+        admin.setPassword(passwordEncoder.encode(request.getPassword()));
+        admin.setRole(User.UserRole.ADMIN);
+        admin.setStatus(User.UserStatus.ACTIVE);
+        admin.setAccountStatus(User.AccountStatus.ACTIVE);
+        admin.setIsVerified(true);
+        admin.setIsOnboardingComplete(true);
+        admin.setFailedLoginAttempts(0);
+        admin.setLoginAttempts(0);
+
+        User savedAdmin = userRepository.save(admin);
+        log.info("Admin created successfully with id: {}", savedAdmin.getId());
+
+        return mapToAdminDto(savedAdmin);
+    }
+
+    /**
+     * Update admin user
+     */
+    @Transactional
+    public AdminUserDto updateAdmin(Long id, AdminUserDto.UpdateAdminRequest request) {
+        log.info("Updating admin with id: {}", id);
+
+        User admin = userRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Admin not found with id: " + id));
+
+        if (admin.getRole() != User.UserRole.ADMIN) {
+            throw new RuntimeException("User is not an admin");
+        }
+
+        // Update fields if provided
+        if (request.getFirstName() != null && !request.getFirstName().isEmpty()) {
+            admin.setFirstName(request.getFirstName());
+        }
+        if (request.getLastName() != null && !request.getLastName().isEmpty()) {
+            admin.setLastName(request.getLastName());
+        }
+        if (request.getEmail() != null && !request.getEmail().isEmpty()) {
+            // Check if email is different and already exists
+            if (!admin.getEmail().equals(request.getEmail()) &&
+                userRepository.findByEmail(request.getEmail()).isPresent()) {
+                throw new RuntimeException("Email already exists: " + request.getEmail());
+            }
+            admin.setEmail(request.getEmail());
+        }
+        if (request.getMobile() != null && !request.getMobile().isEmpty()) {
+            // Check if mobile is different and already exists
+            if (!admin.getMobile().equals(request.getMobile()) &&
+                userRepository.findByMobile(request.getMobile()).isPresent()) {
+                throw new RuntimeException("Mobile already exists: " + request.getMobile());
+            }
+            admin.setMobile(request.getMobile());
+        }
+        if (request.getPassword() != null && !request.getPassword().isEmpty()) {
+            admin.setPassword(passwordEncoder.encode(request.getPassword()));
+        }
+
+        User savedAdmin = userRepository.save(admin);
+        log.info("Admin updated successfully with id: {}", savedAdmin.getId());
+
+        return mapToAdminDto(savedAdmin);
+    }
+
+    /**
+     * Change admin status
+     */
+    @Transactional
+    public AdminUserDto changeAdminStatus(Long id, AdminUserDto.ChangeStatusRequest request) {
+        log.info("Changing status of admin with id: {} to {}", id, request.getStatus());
+
+        User admin = userRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Admin not found with id: " + id));
+
+        if (admin.getRole() != User.UserRole.ADMIN) {
+            throw new RuntimeException("User is not an admin");
+        }
+
+        try {
+            User.AccountStatus newStatus = User.AccountStatus.valueOf(request.getStatus().toUpperCase());
+            admin.setAccountStatus(newStatus);
+
+            // Also update UserStatus for consistency
+            switch (newStatus) {
+                case ACTIVE:
+                    admin.setStatus(User.UserStatus.ACTIVE);
+                    break;
+                case INACTIVE:
+                    admin.setStatus(User.UserStatus.INACTIVE);
+                    break;
+                case SUSPENDED:
+                    admin.setStatus(User.UserStatus.SUSPENDED);
+                    break;
+                case BANNED:
+                    admin.setStatus(User.UserStatus.BANNED);
+                    break;
+                default:
+                    break;
+            }
+
+            if (request.getReason() != null && !request.getReason().isEmpty()) {
+                admin.setDeactivationReason(request.getReason());
+            }
+
+        } catch (IllegalArgumentException e) {
+            throw new RuntimeException("Invalid status: " + request.getStatus());
+        }
+
+        User savedAdmin = userRepository.save(admin);
+        log.info("Admin status changed successfully to {}", savedAdmin.getAccountStatus());
+
+        return mapToAdminDto(savedAdmin);
+    }
+
+    /**
+     * Delete admin user
+     */
+    @Transactional
+    public void deleteAdmin(Long id) {
+        log.info("Deleting admin with id: {}", id);
+
+        User admin = userRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Admin not found with id: " + id));
+
+        if (admin.getRole() != User.UserRole.ADMIN) {
+            throw new RuntimeException("User is not an admin");
+        }
+
+        userRepository.delete(admin);
+        log.info("Admin deleted successfully with id: {}", id);
+    }
+
+    /**
+     * Map User entity to AdminUserDto
+     */
+    private AdminUserDto mapToAdminDto(User user) {
+        return AdminUserDto.builder()
+                .id(user.getId())
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
+                .email(user.getEmail())
+                .mobile(user.getMobile())
+                .role(user.getRole() != null ? user.getRole().name() : null)
+                .status(user.getStatus() != null ? user.getStatus().name() : null)
+                .accountStatus(user.getAccountStatus() != null ? user.getAccountStatus().name() : null)
+                .isVerified(user.getIsVerified())
+                .isActive(user.getStatus() == User.UserStatus.ACTIVE)
+                .lastLogin(user.getLastLogin())
+                .createdAt(user.getCreatedAt())
+                .updatedAt(user.getUpdatedAt())
+                .build();
+    }
 
     /**
      * Get comprehensive dashboard statistics

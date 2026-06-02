@@ -111,6 +111,23 @@ public class Job extends BaseEntity {
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
+    @Column(name = "approved_at")
+    private LocalDateTime approvedAt;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "approved_by")
+    private User approvedBy;
+
+    @Column(name = "rejected_at")
+    private LocalDateTime rejectedAt;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "rejected_by")
+    private User rejectedBy;
+
+    @Column(name = "rejection_reason", columnDefinition = "TEXT")
+    private String rejectionReason;
+
     @OneToMany(mappedBy = "job", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<JobApplication> applications;
 
@@ -126,6 +143,6 @@ public class Job extends BaseEntity {
     }
 
     public enum JobStatus {
-        DRAFT, ACTIVE, INACTIVE, PAUSED, CLOSED, CANCELLED, DELETED
+        DRAFT, PENDING_APPROVAL, ACTIVE, INACTIVE, PAUSED, CLOSED, CANCELLED, REJECTED, DELETED
     }
 }

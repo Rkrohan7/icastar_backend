@@ -6,6 +6,7 @@ import com.icastar.platform.service.SuperAdminService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -71,6 +72,149 @@ public class SuperAdminController {
         response.put("data", summary);
 
         return ResponseEntity.ok(response);
+    }
+
+    // ==================== ADMIN USERS APIs ====================
+
+    @GetMapping("/admins")
+    @Operation(summary = "Get All Admins", description = "Get all admin users with pagination")
+    public ResponseEntity<Map<String, Object>> getAllAdmins(
+            @Parameter(description = "Page number") @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Page size") @RequestParam(defaultValue = "20") int size,
+            @Parameter(description = "Sort by field") @RequestParam(defaultValue = "createdAt") String sortBy,
+            @Parameter(description = "Sort direction") @RequestParam(defaultValue = "DESC") String sortDir,
+            @Parameter(description = "Search term") @RequestParam(required = false) String search,
+            @Parameter(description = "Account status filter") @RequestParam(required = false) String status) {
+
+        log.info("Fetching all admins - page: {}, size: {}, search: {}", page, size, search);
+
+        Sort sort = sortDir.equalsIgnoreCase("ASC") ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        Page<AdminUserDto> admins = superAdminService.getAllAdmins(pageable, search, status);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("message", "Admin users retrieved successfully");
+        response.put("data", admins.getContent());
+        response.put("currentPage", admins.getNumber());
+        response.put("totalItems", admins.getTotalElements());
+        response.put("totalPages", admins.getTotalPages());
+
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/admins/{id}")
+    @Operation(summary = "Get Admin Details", description = "Get detailed information of a specific admin")
+    public ResponseEntity<Map<String, Object>> getAdminDetails(@PathVariable Long id) {
+        log.info("Fetching admin details for id: {}", id);
+
+        try {
+            AdminUserDto admin = superAdminService.getAdminById(id);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Admin details retrieved successfully");
+            response.put("data", admin);
+
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+
+    @PostMapping("/admins")
+    @Operation(summary = "Create Admin", description = "Create a new admin user")
+    public ResponseEntity<Map<String, Object>> createAdmin(@Valid @RequestBody AdminUserDto.CreateAdminRequest request) {
+        log.info("Creating new admin with email: {}", request.getEmail());
+
+        try {
+            AdminUserDto admin = superAdminService.createAdmin(request);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Admin created successfully");
+            response.put("data", admin);
+
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+
+    @PutMapping("/admins/{id}")
+    @Operation(summary = "Update Admin", description = "Update an existing admin user")
+    public ResponseEntity<Map<String, Object>> updateAdmin(
+            @PathVariable Long id,
+            @Valid @RequestBody AdminUserDto.UpdateAdminRequest request) {
+        log.info("Updating admin with id: {}", id);
+
+        try {
+            AdminUserDto admin = superAdminService.updateAdmin(id, request);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Admin updated successfully");
+            response.put("data", admin);
+
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+
+    @PatchMapping("/admins/{id}/status")
+    @Operation(summary = "Change Admin Status", description = "Change the status of an admin user")
+    public ResponseEntity<Map<String, Object>> changeAdminStatus(
+            @PathVariable Long id,
+            @Valid @RequestBody AdminUserDto.ChangeStatusRequest request) {
+        log.info("Changing status of admin with id: {} to {}", id, request.getStatus());
+
+        try {
+            AdminUserDto admin = superAdminService.changeAdminStatus(id, request);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Admin status changed successfully");
+            response.put("data", admin);
+
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+
+    @DeleteMapping("/admins/{id}")
+    @Operation(summary = "Delete Admin", description = "Delete an admin user")
+    public ResponseEntity<Map<String, Object>> deleteAdmin(@PathVariable Long id) {
+        log.info("Deleting admin with id: {}", id);
+
+        try {
+            superAdminService.deleteAdmin(id);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Admin deleted successfully");
+
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        }
     }
 
     // ==================== ALL RECRUITERS APIs ====================
