@@ -862,7 +862,7 @@ public class SuperAdminService {
     private SuperAdminJobApplicationDto mapToCastingCallApplicationDto(CastingCallApplication app) {
         CastingCall castingCall = app.getCastingCall();
         ArtistProfile artist = app.getArtist();
-        RecruiterProfile recruiter = castingCall != null ? castingCall.getRecruiter() : null;
+        User recruiterUser = castingCall != null ? castingCall.getRecruiter() : null;
 
         return SuperAdminJobApplicationDto.builder()
                 .id(app.getId())
@@ -886,11 +886,10 @@ public class SuperAdminService {
                 .artistMobile(artist != null && artist.getUser() != null ? artist.getUser().getMobile() : null)
                 .artistProfileImage(artist != null ? artist.getProfileUrl() : null)
                 .artistType(artist != null && artist.getArtistType() != null ? artist.getArtistType().getName() : null)
-                .recruiterId(recruiter != null ? recruiter.getId() : null)
-                .recruiterName(recruiter != null && recruiter.getUser() != null ?
-                    recruiter.getUser().getFirstName() + " " + recruiter.getUser().getLastName() : null)
-                .recruiterEmail(recruiter != null && recruiter.getUser() != null ? recruiter.getUser().getEmail() : null)
-                .companyName(recruiter != null ? recruiter.getCompanyName() : null)
+                .recruiterId(recruiterUser != null ? recruiterUser.getId() : null)
+                .recruiterName(recruiterUser != null ?
+                    recruiterUser.getFirstName() + " " + recruiterUser.getLastName() : null)
+                .recruiterEmail(recruiterUser != null ? recruiterUser.getEmail() : null)
                 .createdAt(app.getCreatedAt())
                 .updatedAt(app.getUpdatedAt())
                 .build();
@@ -1177,18 +1176,21 @@ public class SuperAdminService {
     private SuperAdminCategoryDto mapToCategoryDto(ArtistType category) {
         Long artistCount = artistProfileRepository.countByArtistTypeId(category.getId());
 
-        List<SuperAdminCategoryDto.FieldDto> fields = category.getFields() != null ?
-            category.getFields().stream()
-                .map(f -> SuperAdminCategoryDto.FieldDto.builder()
+        List<SuperAdminCategoryDto.FieldDto> fields = new ArrayList<>();
+        if (category.getFields() != null) {
+            for (ArtistTypeField f : category.getFields()) {
+                SuperAdminCategoryDto.FieldDto fieldDto = SuperAdminCategoryDto.FieldDto.builder()
                     .id(f.getId())
                     .fieldName(f.getFieldName())
-                    .fieldLabel(f.getFieldLabel())
+                    .fieldLabel(f.getDisplayName())
                     .fieldType(f.getFieldType() != null ? f.getFieldType().name() : null)
                     .isRequired(f.getIsRequired())
                     .options(f.getOptions())
                     .sortOrder(f.getSortOrder())
-                    .build())
-                .collect(Collectors.toList()) : Collections.emptyList();
+                    .build();
+                fields.add(fieldDto);
+            }
+        }
 
         return SuperAdminCategoryDto.builder()
                 .id(category.getId())

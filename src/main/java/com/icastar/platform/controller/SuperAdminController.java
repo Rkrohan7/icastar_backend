@@ -652,7 +652,8 @@ public class SuperAdminController {
         log.info("Approving job with id: {}", id);
 
         try {
-            User approver = userService.getCurrentUser(authentication);
+            User approver = userService.findByEmail(authentication.getName())
+                    .orElseThrow(() -> new RuntimeException("User not found"));
             JobApprovalDto job = superAdminService.approveJob(id, approver);
 
             Map<String, Object> response = new HashMap<>();
@@ -678,7 +679,8 @@ public class SuperAdminController {
         log.info("Rejecting job with id: {}", id);
 
         try {
-            User rejector = userService.getCurrentUser(authentication);
+            User rejector = userService.findByEmail(authentication.getName())
+                    .orElseThrow(() -> new RuntimeException("User not found"));
             JobApprovalDto job = superAdminService.rejectJob(id, rejector, request.getReason());
 
             Map<String, Object> response = new HashMap<>();
@@ -888,7 +890,8 @@ public class SuperAdminController {
         log.info("Reviewing report with id: {}", id);
 
         try {
-            User reviewer = userService.getCurrentUser(authentication);
+            User reviewer = userService.findByEmail(authentication.getName())
+                    .orElseThrow(() -> new RuntimeException("User not found"));
             SuperAdminReportContentDto report = superAdminService.reviewReport(id, request, reviewer);
 
             Map<String, Object> response = new HashMap<>();
