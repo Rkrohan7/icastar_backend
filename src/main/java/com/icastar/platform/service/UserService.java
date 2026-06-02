@@ -1,11 +1,15 @@
 package com.icastar.platform.service;
 
+import com.icastar.platform.config.CacheNames;
 import com.icastar.platform.dto.user.UpdateUserStatusDto;
 import com.icastar.platform.entity.User;
 import com.icastar.platform.exception.BusinessException;
 import com.icastar.platform.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -26,12 +30,16 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
 
     @Transactional(readOnly = true)
+    @Cacheable(value = CacheNames.USER_BY_ID, key = "#id", unless = "#result == null || !#result.isPresent()")
     public Optional<User> findById(Long id) {
+        log.debug("Cache MISS: Loading user by id: {}", id);
         return userRepository.findById(id);
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(value = CacheNames.USER_BY_EMAIL, key = "#email", unless = "#result == null || !#result.isPresent()")
     public Optional<User> findByEmail(String email) {
+        log.debug("Cache MISS: Loading user by email: {}", email);
         return userRepository.findByEmail(email);
     }
 
@@ -46,7 +54,9 @@ public class UserService {
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(value = CacheNames.USERS_BY_ROLE, key = "#role.name()")
     public List<User> findByRole(User.UserRole role) {
+        log.debug("Cache MISS: Loading users by role: {}", role);
         return userRepository.findByRole(role);
     }
 
@@ -60,22 +70,40 @@ public class UserService {
         return userRepository.findByRoleAndStatus(role, status, pageable);
     }
 
+    @Caching(evict = {
+        @CacheEvict(value = CacheNames.USER_BY_ID, key = "#user.id", condition = "#user.id != null"),
+        @CacheEvict(value = CacheNames.USER_BY_EMAIL, key = "#user.email", condition = "#user.email != null"),
+        @CacheEvict(value = CacheNames.USERS_BY_ROLE, allEntries = true),
+        @CacheEvict(value = CacheNames.DASHBOARD_STATS, allEntries = true)
+    })
     public User save(User user) {
+        log.debug("Saving user - Cache will be evicted");
         return userRepository.save(user);
     }
 
+    @Caching(evict = {
+        @CacheEvict(value = CacheNames.USER_BY_ID, key = "#userId"),
+        @CacheEvict(value = CacheNames.USER_BY_EMAIL, allEntries = true),
+        @CacheEvict(value = CacheNames.USERS_BY_ROLE, allEntries = true)
+    })
     public User updateUserStatus(Long userId, User.UserStatus status) {
+        log.info("Updating user {} status to {} - Cache will be evicted", userId, status);
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found with id: " + userId));
-        
+
         user.setStatus(status);
         return userRepository.save(user);
     }
 
+    @Caching(evict = {
+        @CacheEvict(value = CacheNames.USER_BY_ID, key = "#userId"),
+        @CacheEvict(value = CacheNames.USER_BY_EMAIL, allEntries = true)
+    })
     public User updateUserVerification(Long userId, Boolean isVerified) {
+        log.info("Updating user {} verification to {} - Cache will be evicted", userId, isVerified);
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found with id: " + userId));
-        
+
         user.setIsVerified(isVerified);
         return userRepository.save(user);
     }
@@ -189,26 +217,38 @@ public class UserService {
         return updatedUser;
     }
 
+    @Caching(evict = {
+        @CacheEvict(value = CacheNames.USER_BY_ID, key = "#userId"),
+        @CacheEvict(value = CacheNames.USER_BY_EMAIL, allEntries = true),
+        @CacheEvict(value = CacheNames.USERS_BY_ROLE, allEntries = true),
+        @CacheEvict(value = CacheNames.DASHBOARD_STATS, allEntries = true)
+    })
     public User banUser(Long userId, String reason) {
         User user = findById(userId)
                 .orElseThrow(() -> new BusinessException("User not found with id: " + userId));
 
-        log.info("Banning user {} with reason: {}", userId, reason);
+        log.info("Banning user {} with reason: {} - Cache will be evicted", userId, reason);
 
         user.setStatus(User.UserStatus.BANNED);
         user.setAccountLockedUntil(LocalDateTime.now().plusYears(1)); // Ban for 1 year
 
         User bannedUser = userRepository.save(user);
         log.info("User {} banned successfully", userId);
-        
+
         return bannedUser;
     }
 
+    @Caching(evict = {
+        @CacheEvict(value = CacheNames.USER_BY_ID, key = "#userId"),
+        @CacheEvict(value = CacheNames.USER_BY_EMAIL, allEntries = true),
+        @CacheEvict(value = CacheNames.USERS_BY_ROLE, allEntries = true),
+        @CacheEvict(value = CacheNames.DASHBOARD_STATS, allEntries = true)
+    })
     public User unbanUser(Long userId) {
         User user = findById(userId)
                 .orElseThrow(() -> new BusinessException("User not found with id: " + userId));
 
-        log.info("Unbanning user {}", userId);
+        log.info("Unbanning user {} - Cache will be evicted", userId);
 
         user.setStatus(User.UserStatus.ACTIVE);
         user.setAccountLockedUntil(null);
@@ -216,48 +256,62 @@ public class UserService {
 
         User unbannedUser = userRepository.save(user);
         log.info("User {} unbanned successfully", userId);
-        
+
         return unbannedUser;
     }
 
+    @Caching(evict = {
+        @CacheEvict(value = CacheNames.USER_BY_ID, key = "#userId"),
+        @CacheEvict(value = CacheNames.USER_BY_EMAIL, allEntries = true)
+    })
     public User verifyUser(Long userId) {
         User user = findById(userId)
                 .orElseThrow(() -> new BusinessException("User not found with id: " + userId));
 
-        log.info("Verifying user {}", userId);
+        log.info("Verifying user {} - Cache will be evicted", userId);
 
         user.setIsVerified(true);
 
         User verifiedUser = userRepository.save(user);
         log.info("User {} verified successfully", userId);
-        
+
         return verifiedUser;
     }
 
+    @Caching(evict = {
+        @CacheEvict(value = CacheNames.USER_BY_ID, key = "#userId"),
+        @CacheEvict(value = CacheNames.USER_BY_EMAIL, allEntries = true)
+    })
     public User unverifyUser(Long userId) {
         User user = findById(userId)
                 .orElseThrow(() -> new BusinessException("User not found with id: " + userId));
 
-        log.info("Unverifying user {}", userId);
+        log.info("Unverifying user {} - Cache will be evicted", userId);
 
         user.setIsVerified(false);
 
         User unverifiedUser = userRepository.save(user);
         log.info("User {} unverified successfully", userId);
-        
+
         return unverifiedUser;
     }
 
+    @Caching(evict = {
+        @CacheEvict(value = CacheNames.USER_BY_ID, key = "#userId"),
+        @CacheEvict(value = CacheNames.USER_BY_EMAIL, allEntries = true),
+        @CacheEvict(value = CacheNames.USERS_BY_ROLE, allEntries = true),
+        @CacheEvict(value = CacheNames.DASHBOARD_STATS, allEntries = true)
+    })
     public void deleteUser(Long userId) {
         User user = findById(userId)
                 .orElseThrow(() -> new BusinessException("User not found with id: " + userId));
 
-        log.info("Deleting user {}", userId);
+        log.info("Deleting user {} - Cache will be evicted", userId);
 
         // Soft delete - set as inactive
         user.setIsActive(false);
         user.setStatus(User.UserStatus.INACTIVE);
-        
+
         userRepository.save(user);
         log.info("User {} deleted successfully", userId);
     }

@@ -1,8 +1,12 @@
 package com.icastar.platform.service;
 
+import com.icastar.platform.config.CacheNames;
 import com.icastar.platform.constants.ApplicationConstants;
 
 import com.icastar.platform.dto.job.CreateJobDto;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import com.icastar.platform.dto.job.JobDto;
 import com.icastar.platform.dto.job.JobFilterDto;
 import com.icastar.platform.dto.job.UpdateJobDto;
@@ -49,17 +53,23 @@ public class JobService {
     private final ObjectMapper objectMapper;
 
     @Transactional(readOnly = true)
+    @Cacheable(value = CacheNames.JOBS_BY_ID, key = "#id")
     public Optional<Job> findById(Long id) {
+        log.debug("Cache MISS: Loading job by id: {}", id);
         return jobRepository.findById(id);
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(value = CacheNames.JOBS_ACTIVE, key = "'all-active'")
     public List<Job> findActiveJobs() {
+        log.debug("Cache MISS: Loading all active jobs");
         return jobRepository.findActiveJobs(LocalDate.now());
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(value = CacheNames.JOBS_ACTIVE, key = "'page-' + #pageable.pageNumber + '-' + #pageable.pageSize")
     public Page<Job> findActiveJobs(Pageable pageable) {
+        log.debug("Cache MISS: Loading active jobs page {}", pageable.getPageNumber());
         return jobRepository.findActiveJobs(LocalDate.now(), pageable);
     }
 
@@ -137,17 +147,23 @@ public class JobService {
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(value = CacheNames.JOBS_ACTIVE, key = "'remote'")
     public List<Job> findRemoteJobs() {
+        log.debug("Cache MISS: Loading remote jobs");
         return jobRepository.findByIsRemoteTrue();
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(value = CacheNames.JOBS_FEATURED, key = "'all-featured'")
     public List<Job> findFeaturedJobs() {
+        log.debug("Cache MISS: Loading featured jobs");
         return jobRepository.findByIsFeaturedTrue();
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(value = CacheNames.JOBS_ACTIVE, key = "'urgent'")
     public List<Job> findUrgentJobs() {
+        log.debug("Cache MISS: Loading urgent jobs");
         return jobRepository.findByIsUrgentTrue();
     }
 
@@ -178,7 +194,13 @@ public class JobService {
         return jobRepository.findJobsExpiringSoon(startDate, endDate);
     }
 
+    @Caching(evict = {
+        @CacheEvict(value = CacheNames.JOBS_ACTIVE, allEntries = true),
+        @CacheEvict(value = CacheNames.JOBS_FEATURED, allEntries = true),
+        @CacheEvict(value = CacheNames.DASHBOARD_STATS, allEntries = true)
+    })
     public Job createJob(Long recruiterId, CreateJobDto createJobDto) {
+        log.info("Creating new job - Cache will be evicted");
         User recruiter = userRepository.findById(recruiterId)
                 .orElseThrow(() -> new RuntimeException("Recruiter not found"));
 
@@ -223,7 +245,13 @@ public class JobService {
         return jobRepository.save(job);
     }
 
+    @Caching(evict = {
+        @CacheEvict(value = CacheNames.JOBS_BY_ID, key = "#jobId"),
+        @CacheEvict(value = CacheNames.JOBS_ACTIVE, allEntries = true),
+        @CacheEvict(value = CacheNames.JOBS_FEATURED, allEntries = true)
+    })
     public Job updateJob(Long jobId, Long recruiterId, UpdateJobDto updateJobDto) {
+        log.info("Updating job {} - Cache will be evicted", jobId);
         Job job = jobRepository.findById(jobId)
                 .orElseThrow(() -> new RuntimeException(ApplicationConstants.ErrorMessages.JOB_NOT_FOUND));
 
@@ -338,7 +366,13 @@ public class JobService {
     /**
      * Admin-only method to update any job without ownership validation
      */
+    @Caching(evict = {
+        @CacheEvict(value = CacheNames.JOBS_BY_ID, key = "#jobId"),
+        @CacheEvict(value = CacheNames.JOBS_ACTIVE, allEntries = true),
+        @CacheEvict(value = CacheNames.JOBS_FEATURED, allEntries = true)
+    })
     public Job updateJobAsAdmin(Long jobId, UpdateJobDto updateJobDto) {
+        log.info("Admin updating job {} - Cache will be evicted", jobId);
         Job job = jobRepository.findById(jobId)
                 .orElseThrow(() -> new RuntimeException(ApplicationConstants.ErrorMessages.JOB_NOT_FOUND));
 
@@ -416,7 +450,14 @@ public class JobService {
     /**
      * Admin-only method to delete any job without ownership validation
      */
+    @Caching(evict = {
+        @CacheEvict(value = CacheNames.JOBS_BY_ID, key = "#jobId"),
+        @CacheEvict(value = CacheNames.JOBS_ACTIVE, allEntries = true),
+        @CacheEvict(value = CacheNames.JOBS_FEATURED, allEntries = true),
+        @CacheEvict(value = CacheNames.DASHBOARD_STATS, allEntries = true)
+    })
     public void deleteJobAsAdmin(Long jobId) {
+        log.info("Admin deleting job {} - Cache will be evicted", jobId);
         Job job = jobRepository.findById(jobId)
                 .orElseThrow(() -> new RuntimeException(ApplicationConstants.ErrorMessages.JOB_NOT_FOUND));
 
@@ -425,7 +466,13 @@ public class JobService {
         jobRepository.save(job);
     }
 
+    @Caching(evict = {
+        @CacheEvict(value = CacheNames.JOBS_BY_ID, key = "#jobId"),
+        @CacheEvict(value = CacheNames.JOBS_ACTIVE, allEntries = true),
+        @CacheEvict(value = CacheNames.JOBS_FEATURED, allEntries = true)
+    })
     public Job updateJobStatus(Long jobId, Job.JobStatus status) {
+        log.info("Updating job {} status to {} - Cache will be evicted", jobId, status);
         Job job = jobRepository.findById(jobId)
                 .orElseThrow(() -> new RuntimeException(ApplicationConstants.ErrorMessages.JOB_NOT_FOUND));
 
@@ -445,8 +492,13 @@ public class JobService {
      * @param reason Optional reason for status change
      * @return Updated job
      */
+    @Caching(evict = {
+        @CacheEvict(value = CacheNames.JOBS_BY_ID, key = "#jobId"),
+        @CacheEvict(value = CacheNames.JOBS_ACTIVE, allEntries = true),
+        @CacheEvict(value = CacheNames.JOBS_FEATURED, allEntries = true)
+    })
     public Job updateJobStatus(Long jobId, Long recruiterId, Job.JobStatus status, String reason) {
-        log.info("Attempting to update job {} status to {} by recruiter {}", jobId, status, recruiterId);
+        log.info("Attempting to update job {} status to {} by recruiter {} - Cache will be evicted", jobId, status, recruiterId);
 
         // Validate inputs
         if (jobId == null) {
@@ -543,7 +595,14 @@ public class JobService {
         }
     }
 
+    @Caching(evict = {
+        @CacheEvict(value = CacheNames.JOBS_BY_ID, key = "#jobId"),
+        @CacheEvict(value = CacheNames.JOBS_ACTIVE, allEntries = true),
+        @CacheEvict(value = CacheNames.JOBS_FEATURED, allEntries = true),
+        @CacheEvict(value = CacheNames.DASHBOARD_STATS, allEntries = true)
+    })
     public void deleteJob(Long jobId, Long recruiterId) {
+        log.info("Deleting job {} by recruiter {} - Cache will be evicted", jobId, recruiterId);
         Job job = jobRepository.findById(jobId)
                 .orElseThrow(() -> new RuntimeException(ApplicationConstants.ErrorMessages.JOB_NOT_FOUND));
 

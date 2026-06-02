@@ -1,5 +1,6 @@
 package com.icastar.platform.service;
 
+import com.icastar.platform.config.CacheNames;
 import com.icastar.platform.dto.ArtistTypeDto;
 import com.icastar.platform.dto.ArtistTypeFieldDto;
 import com.icastar.platform.entity.ArtistType;
@@ -8,6 +9,9 @@ import com.icastar.platform.repository.ArtistTypeRepository;
 import com.icastar.platform.repository.ArtistTypeFieldRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,12 +29,16 @@ public class ArtistTypeService {
     private final ArtistTypeFieldRepository artistTypeFieldRepository;
 
     @Transactional(readOnly = true)
+    @Cacheable(value = CacheNames.ARTIST_TYPES, key = "'entity-' + #id")
     public Optional<ArtistType> findById(Long id) {
+        log.debug("Cache MISS: Loading ArtistType entity by id: {}", id);
         return artistTypeRepository.findById(id);
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(value = CacheNames.ARTIST_TYPES, key = "'all-active'")
     public List<ArtistTypeDto> getAllActiveArtistTypes() {
+        log.debug("Cache MISS: Loading all active artist types from database");
         return artistTypeRepository.findActiveArtistTypesOrdered()
                 .stream()
                 .map(this::convertToDto)
@@ -38,21 +46,27 @@ public class ArtistTypeService {
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(value = CacheNames.ARTIST_TYPES, key = "'dto-' + #id")
     public ArtistTypeDto getArtistTypeById(Long id) {
+        log.debug("Cache MISS: Loading ArtistType DTO by id: {}", id);
         ArtistType artistType = artistTypeRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Artist type not found with id: " + id));
         return convertToDto(artistType);
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(value = CacheNames.ARTIST_TYPES, key = "'name-' + #name")
     public ArtistTypeDto getArtistTypeByName(String name) {
+        log.debug("Cache MISS: Loading ArtistType by name: {}", name);
         ArtistType artistType = artistTypeRepository.findByName(name)
                 .orElseThrow(() -> new RuntimeException("Artist type not found with name: " + name));
         return convertToDto(artistType);
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(value = CacheNames.ARTIST_TYPE_FIELDS, key = "'active-' + #artistTypeId")
     public List<ArtistTypeFieldDto> getArtistTypeFields(Long artistTypeId) {
+        log.debug("Cache MISS: Loading fields for artistTypeId: {}", artistTypeId);
         return artistTypeFieldRepository.findActiveFieldsByArtistType(artistTypeId)
                 .stream()
                 .map(this::convertFieldToDto)
@@ -60,7 +74,9 @@ public class ArtistTypeService {
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(value = CacheNames.ARTIST_TYPE_FIELDS, key = "'required-' + #artistTypeId")
     public List<ArtistTypeFieldDto> getRequiredArtistTypeFields(Long artistTypeId) {
+        log.debug("Cache MISS: Loading required fields for artistTypeId: {}", artistTypeId);
         return artistTypeFieldRepository.findByArtistTypeIdAndIsRequiredTrueOrderBySortOrder(artistTypeId)
                 .stream()
                 .map(this::convertFieldToDto)
@@ -68,13 +84,19 @@ public class ArtistTypeService {
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(value = CacheNames.ARTIST_TYPE_FIELDS, key = "'searchable-' + #artistTypeId")
     public List<ArtistTypeFieldDto> getSearchableArtistTypeFields(Long artistTypeId) {
+        log.debug("Cache MISS: Loading searchable fields for artistTypeId: {}", artistTypeId);
         return artistTypeFieldRepository.findByArtistTypeIdAndIsSearchableTrueOrderBySortOrder(artistTypeId)
                 .stream()
                 .map(this::convertFieldToDto)
                 .collect(Collectors.toList());
     }
 
+    @Caching(evict = {
+        @CacheEvict(value = CacheNames.ARTIST_TYPES, allEntries = true),
+        @CacheEvict(value = CacheNames.ARTIST_TYPE_FIELDS, allEntries = true)
+    })
     public ArtistTypeDto createArtistType(ArtistTypeDto artistTypeDto) {
         ArtistType artistType = new ArtistType();
         artistType.setName(artistTypeDto.getName());
@@ -85,11 +107,12 @@ public class ArtistTypeService {
         artistType.setIsActive(true);
 
         ArtistType savedArtistType = artistTypeRepository.save(artistType);
-        log.info("Created new artist type: {}", savedArtistType.getName());
-        
+        log.info("Created new artist type: {} - Cache evicted", savedArtistType.getName());
+
         return convertToDto(savedArtistType);
     }
 
+    @CacheEvict(value = CacheNames.ARTIST_TYPE_FIELDS, allEntries = true)
     public ArtistTypeFieldDto createArtistTypeField(Long artistTypeId, ArtistTypeFieldDto fieldDto) {
         ArtistType artistType = artistTypeRepository.findById(artistTypeId)
                 .orElseThrow(() -> new RuntimeException("Artist type not found with id: " + artistTypeId));
@@ -107,11 +130,15 @@ public class ArtistTypeService {
         field.setIsActive(true);
 
         ArtistTypeField savedField = artistTypeFieldRepository.save(field);
-        log.info("Created new field '{}' for artist type '{}'", savedField.getFieldName(), artistType.getName());
-        
+        log.info("Created new field '{}' for artist type '{}' - Cache evicted", savedField.getFieldName(), artistType.getName());
+
         return convertFieldToDto(savedField);
     }
 
+    @Caching(evict = {
+        @CacheEvict(value = CacheNames.ARTIST_TYPES, allEntries = true),
+        @CacheEvict(value = CacheNames.ARTIST_TYPE_FIELDS, allEntries = true)
+    })
     public ArtistTypeDto updateArtistType(Long id, ArtistTypeDto artistTypeDto) {
         ArtistType artistType = artistTypeRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Artist type not found with id: " + id));
@@ -123,18 +150,22 @@ public class ArtistTypeService {
         artistType.setIsActive(artistTypeDto.getIsActive());
 
         ArtistType updatedArtistType = artistTypeRepository.save(artistType);
-        log.info("Updated artist type: {}", updatedArtistType.getName());
-        
+        log.info("Updated artist type: {} - Cache evicted", updatedArtistType.getName());
+
         return convertToDto(updatedArtistType);
     }
 
+    @Caching(evict = {
+        @CacheEvict(value = CacheNames.ARTIST_TYPES, allEntries = true),
+        @CacheEvict(value = CacheNames.ARTIST_TYPE_FIELDS, allEntries = true)
+    })
     public void deleteArtistType(Long id) {
         ArtistType artistType = artistTypeRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Artist type not found with id: " + id));
-        
+
         artistType.setIsActive(false);
         artistTypeRepository.save(artistType);
-        log.info("Deactivated artist type: {}", artistType.getName());
+        log.info("Deactivated artist type: {} - Cache evicted", artistType.getName());
     }
 
     private ArtistTypeDto convertToDto(ArtistType artistType) {

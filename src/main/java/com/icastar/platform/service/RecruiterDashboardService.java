@@ -1,8 +1,12 @@
 package com.icastar.platform.service;
 
+import com.icastar.platform.config.CacheNames;
 import com.icastar.platform.constants.ApplicationConstants;
 
 import com.icastar.platform.dto.recruiter.*;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import com.icastar.platform.entity.*;
 import com.icastar.platform.repository.*;
 import lombok.RequiredArgsConstructor;
@@ -51,7 +55,9 @@ public class RecruiterDashboardService {
      * Get recruiter dashboard overview
      */
     @Transactional(readOnly = true)
+    @Cacheable(value = CacheNames.DASHBOARD_RECRUITER, key = "#recruiter.id")
     public RecruiterDashboardDto getDashboard(User recruiter) {
+        log.debug("Cache MISS: Loading recruiter dashboard for user: {}", recruiter.getId());
         // Get recruiter profile
         RecruiterProfile recruiterProfile = recruiterProfileRepository.findByUserId(recruiter.getId())
                 .orElseThrow(() -> new RuntimeException(ApplicationConstants.ErrorMessages.RECRUITER_PROFILE_NOT_FOUND));
@@ -342,8 +348,9 @@ public class RecruiterDashboardService {
      * Get recruiter statistics
      */
     @Transactional(readOnly = true)
+    @Cacheable(value = CacheNames.DASHBOARD_RECRUITER, key = "'stats-' + #email")
     public Map<String, Object> getStatistics(String email) {
-
+        log.debug("Cache MISS: Loading recruiter statistics for: {}", email);
         User recruiter = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Recruiter not found"));
 
@@ -376,6 +383,7 @@ public class RecruiterDashboardService {
      * Update job status
      */
     @Transactional
+    @CacheEvict(value = CacheNames.DASHBOARD_RECRUITER, allEntries = true)
     public Map<String, Object> updateJobStatus(Long jobId, String status, String reason, User recruiter) {
         // Get recruiter profile
         RecruiterProfile recruiterProfile = recruiterProfileRepository.findByUserId(recruiter.getId())
@@ -882,6 +890,10 @@ public class RecruiterDashboardService {
     }
 
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = CacheNames.DASHBOARD_RECRUITER, allEntries = true),
+        @CacheEvict(value = CacheNames.JOBS_ACTIVE, allEntries = true)
+    })
     public void deleteJob(Long jobId, String email) {
         // Find the job with the recruiter relationship loaded
         Job job = jobRepository.findByIdWithRecruiter(jobId)
@@ -910,6 +922,11 @@ public class RecruiterDashboardService {
     }
 
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = CacheNames.DASHBOARD_RECRUITER, allEntries = true),
+        @CacheEvict(value = CacheNames.JOBS_ACTIVE, allEntries = true),
+        @CacheEvict(value = CacheNames.DASHBOARD_STATS, allEntries = true)
+    })
     public Map<String, Object> createJob(CreateJobDto createJobDto, String email) {
         try {
             User recruiter = userRepository.findByEmail(email)
@@ -1608,8 +1625,10 @@ public class RecruiterDashboardService {
      * SECURITY: Returns data only for the logged-in recruiter
      */
     @Transactional(readOnly = true)
+    @Cacheable(value = CacheNames.DASHBOARD_RECRUITER, key = "'metrics-' + #recruiter.id")
     public Map<String, Object> getDashboardMetrics(User recruiter) {
         try {
+            log.debug("Cache MISS: Loading recruiter dashboard metrics for: {}", recruiter.getId());
             // Get recruiter profile
             RecruiterProfile recruiterProfile = recruiterProfileRepository.findByUserId(recruiter.getId())
                     .orElseThrow(() -> new RuntimeException("Recruiter profile not found"));

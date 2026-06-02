@@ -1,11 +1,13 @@
 package com.icastar.platform.service;
 
+import com.icastar.platform.config.CacheNames;
 import com.icastar.platform.entity.*;
 import com.icastar.platform.repository.*;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -39,9 +41,10 @@ public class ArtistDashboardService {
      * GET /api/artist/dashboard/metrics
      */
     @Transactional(readOnly = true)
+    @Cacheable(value = CacheNames.DASHBOARD_ARTIST, key = "#artist.id")
     public Map<String, Object> getDashboardMetrics(User artist) {
         try {
-            log.info("Fetching dashboard metrics for artist: {}", artist.getEmail());
+            log.debug("Cache MISS: Fetching dashboard metrics for artist: {}", artist.getEmail());
 
             // Validate artist profile exists
             ArtistProfile artistProfile = artistProfileRepository.findByUserId(artist.getId())
@@ -214,9 +217,10 @@ public class ArtistDashboardService {
      * GET /api/artist/profile/completion
      */
     @Transactional(readOnly = true)
+    @Cacheable(value = CacheNames.DASHBOARD_ARTIST, key = "'completion-' + #artist.id")
     public Map<String, Object> getProfileCompletion(User artist) {
         try {
-            log.info("Fetching profile completion for artist: {}", artist.getEmail());
+            log.debug("Cache MISS: Fetching profile completion for artist: {}", artist.getEmail());
 
             // Validate artist profile exists
             ArtistProfile artistProfile = artistProfileRepository.findByUserId(artist.getId())
@@ -335,9 +339,10 @@ public class ArtistDashboardService {
      * GET /api/artist/dashboard/application-status
      */
     @Transactional(readOnly = true)
+    @Cacheable(value = CacheNames.DASHBOARD_ARTIST, key = "'app-status-' + #artist.id")
     public Map<String, Object> getApplicationStatusBreakdown(User artist) {
         try {
-            log.info("Fetching application status breakdown for artist: {}", artist.getEmail());
+            log.debug("Cache MISS: Fetching application status breakdown for artist: {}", artist.getEmail());
 
             ArtistProfile artistProfile = artistProfileRepository.findByUserId(artist.getId())
                     .orElseThrow(() -> new RuntimeException("Artist profile not found"));

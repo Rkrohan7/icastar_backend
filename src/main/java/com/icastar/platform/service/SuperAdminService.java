@@ -16,6 +16,10 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import com.icastar.platform.config.CacheNames;
+
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -281,8 +285,9 @@ public class SuperAdminService {
      * Get comprehensive dashboard statistics
      */
     @Transactional(readOnly = true)
+    @Cacheable(value = CacheNames.DASHBOARD_STATS, key = "'super-admin-dashboard'")
     public SuperAdminDashboardDto getDashboardStats() {
-        log.info("Generating super admin dashboard statistics");
+        log.info("Cache MISS: Generating super admin dashboard statistics from database");
 
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime startOfDay = now.with(LocalTime.MIN);
@@ -1124,19 +1129,24 @@ public class SuperAdminService {
     // ==================== CATEGORIES (ARTIST TYPES) ====================
 
     @Transactional(readOnly = true)
+    @Cacheable(value = CacheNames.ARTIST_TYPES, key = "'categories-page-' + #pageable.pageNumber + '-' + #pageable.pageSize")
     public Page<SuperAdminCategoryDto> getAllCategories(Pageable pageable) {
+        log.debug("Cache MISS: Loading categories from database");
         Page<ArtistType> categories = artistTypeRepository.findAll(pageable);
         return categories.map(this::mapToCategoryDto);
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(value = CacheNames.ARTIST_TYPES, key = "'category-' + #id")
     public SuperAdminCategoryDto getCategoryById(Long id) {
+        log.debug("Cache MISS: Loading category by id: {}", id);
         ArtistType category = artistTypeRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Category not found with id: " + id));
         return mapToCategoryDto(category);
     }
 
     @Transactional
+    @CacheEvict(value = CacheNames.ARTIST_TYPES, allEntries = true)
     public SuperAdminCategoryDto createCategory(SuperAdminCategoryDto.CreateCategoryRequest request) {
         ArtistType category = new ArtistType();
         category.setName(request.getName());
@@ -1151,6 +1161,7 @@ public class SuperAdminService {
     }
 
     @Transactional
+    @CacheEvict(value = CacheNames.ARTIST_TYPES, allEntries = true)
     public SuperAdminCategoryDto updateCategory(Long id, SuperAdminCategoryDto.UpdateCategoryRequest request) {
         ArtistType category = artistTypeRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Category not found with id: " + id));
@@ -1163,14 +1174,17 @@ public class SuperAdminService {
         if (request.getSortOrder() != null) category.setSortOrder(request.getSortOrder());
 
         ArtistType saved = artistTypeRepository.save(category);
+        log.info("Updated category: {} - Cache evicted", saved.getName());
         return mapToCategoryDto(saved);
     }
 
     @Transactional
+    @CacheEvict(value = CacheNames.ARTIST_TYPES, allEntries = true)
     public void deleteCategory(Long id) {
         ArtistType category = artistTypeRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Category not found with id: " + id));
         artistTypeRepository.delete(category);
+        log.info("Deleted category: {} - Cache evicted", category.getName());
     }
 
     private SuperAdminCategoryDto mapToCategoryDto(ArtistType category) {
@@ -1210,7 +1224,9 @@ public class SuperAdminService {
     // ==================== SKILLS ====================
 
     @Transactional(readOnly = true)
+    @Cacheable(value = CacheNames.SKILLS_LIST, key = "'all-skills'")
     public List<SuperAdminSkillDto> getAllSkills() {
+        log.info("Cache MISS: Loading all skills from database - heavy aggregation query");
         List<ArtistProfile> artists = artistProfileRepository.findAll();
         List<Job> jobs = jobRepository.findAll();
 

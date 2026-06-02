@@ -55,6 +55,27 @@ spring:
       secret: ${JWT_SECRET:icastar-jwt-secret-key-2024-production-secure-minimum-256-bits-required}
       expiration: ${JWT_EXPIRATION:86400000}
 
+  # Redis Cache Configuration
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 2000
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 2
+          max-wait: -1ms
+
+  # Cache Configuration
+  cache:
+    type: redis
+    redis:
+      time-to-live: 3600000
+      cache-null-values: false
+
 # Server Configuration
 server:
   port: 8080
@@ -116,10 +137,12 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics
+        include: health,info,metrics,caches
   endpoint:
     health:
       show-details: when-authorized
+    caches:
+      enabled: true
 
 # Flyway Configuration (disabled since migrations already run)
 flyway:
