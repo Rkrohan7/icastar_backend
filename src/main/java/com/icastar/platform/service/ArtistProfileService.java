@@ -8,8 +8,12 @@ import com.icastar.platform.entity.User;
 import com.icastar.platform.repository.ArtistProfileRepository;
 import com.icastar.platform.repository.DocumentRepository;
 import com.icastar.platform.repository.UserRepository;
+import com.icastar.platform.config.CacheNames;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -32,7 +36,9 @@ public class ArtistProfileService {
      * Get complete artist profile by user ID
      */
     @Transactional(readOnly = true)
+    @Cacheable(value = CacheNames.ARTIST_PROFILE_BY_USER, key = "#userId", unless = "#result == null || !#result.isPresent()")
     public Optional<ArtistProfileCompleteDto> getCompleteProfileByUserId(Long userId) {
+        log.debug("Cache MISS: Loading artist profile for user ID: {}", userId);
         try {
             User user = userRepository.findById(userId)
                     .orElseThrow(() -> new RuntimeException("User not found"));
@@ -53,7 +59,9 @@ public class ArtistProfileService {
      * Get complete artist profile by artist profile ID
      */
     @Transactional(readOnly = true)
+    @Cacheable(value = CacheNames.ARTIST_PROFILE_BY_ID, key = "#artistProfileId", unless = "#result == null || !#result.isPresent()")
     public Optional<ArtistProfileCompleteDto> getCompleteProfileById(Long artistProfileId) {
+        log.debug("Cache MISS: Loading artist profile for profile ID: {}", artistProfileId);
         try {
             ArtistProfile artistProfile = artistProfileRepository.findById(artistProfileId)
                     .orElseThrow(() -> new RuntimeException("Artist profile not found"));
@@ -129,6 +137,11 @@ public class ArtistProfileService {
      * Update artist profile basic information
      */
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = CacheNames.ARTIST_PROFILE_BY_USER, key = "#userId"),
+        @CacheEvict(value = CacheNames.ARTIST_PROFILE_BY_ID, allEntries = true),
+        @CacheEvict(value = CacheNames.DASHBOARD_ARTIST, key = "#userId")
+    })
     public ArtistProfileCompleteDto updateProfile(Long userId, ArtistProfileCompleteDto updateDto) {
         try {
             User user = userRepository.findById(userId)
@@ -271,6 +284,7 @@ public class ArtistProfileService {
      * Update artist profile photo URL
      */
     @Transactional
+    @CacheEvict(value = CacheNames.ARTIST_PROFILE_BY_USER, key = "#userId")
     public String updateProfilePhotoUrl(Long userId, String profileUrl) {
         try {
             ArtistProfile artistProfile = artistProfileRepository.findByUserId(userId)

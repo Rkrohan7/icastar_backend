@@ -132,13 +132,19 @@ public class RedisConfig {
         // 15 MINUTE CACHES - Dashboard statistics
         cacheConfigurations.put(CacheNames.DASHBOARD_STATS, defaultConfig.entryTtl(Duration.ofMinutes(15)));
 
-        // 10 MINUTE CACHES - User-specific dashboards
+        // 10 MINUTE CACHES - User-specific dashboards and profiles
         cacheConfigurations.put(CacheNames.DASHBOARD_RECRUITER, defaultConfig.entryTtl(Duration.ofMinutes(10)));
         cacheConfigurations.put(CacheNames.DASHBOARD_ARTIST, defaultConfig.entryTtl(Duration.ofMinutes(10)));
+        cacheConfigurations.put(CacheNames.ARTIST_PROFILE_BY_USER, defaultConfig.entryTtl(Duration.ofMinutes(10)));
+        cacheConfigurations.put(CacheNames.ARTIST_PROFILE_BY_ID, defaultConfig.entryTtl(Duration.ofMinutes(10)));
 
         // 5 MINUTE CACHES - Frequently changing data
         cacheConfigurations.put(CacheNames.JOB_APPLICATIONS, defaultConfig.entryTtl(Duration.ofMinutes(5)));
         cacheConfigurations.put(CacheNames.AUDITIONS, defaultConfig.entryTtl(Duration.ofMinutes(5)));
+        cacheConfigurations.put(CacheNames.BOOKMARKS_BY_USER, defaultConfig.entryTtl(Duration.ofMinutes(5)));
+        cacheConfigurations.put(CacheNames.BOOKMARK_CHECK, defaultConfig.entryTtl(Duration.ofMinutes(5)));
+        cacheConfigurations.put(CacheNames.APPLICATION_CHECK, defaultConfig.entryTtl(Duration.ofMinutes(5)));
+        cacheConfigurations.put(CacheNames.NOTIFICATION_UNREAD, defaultConfig.entryTtl(Duration.ofMinutes(2)));
 
         return RedisCacheManager.builder(connectionFactory)
                 .cacheDefaults(defaultConfig)

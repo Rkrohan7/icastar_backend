@@ -3,8 +3,11 @@ package com.icastar.platform.service;
 import com.icastar.platform.entity.Notification;
 import com.icastar.platform.entity.User;
 import com.icastar.platform.repository.NotificationRepository;
+import com.icastar.platform.config.CacheNames;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -92,7 +95,9 @@ public class NotificationService {
      * Get unread notifications count for a user
      */
     @Transactional(readOnly = true)
+    @Cacheable(value = CacheNames.NOTIFICATION_UNREAD, key = "#userId")
     public Long countUnread(Long userId) {
+        log.debug("Cache MISS: Loading unread count for user: {}", userId);
         return notificationRepository.countUnreadByUserId(userId);
     }
 
@@ -101,6 +106,7 @@ public class NotificationService {
      * SECURITY: Validates notification belongs to the user before marking as read
      */
     @Transactional
+    @CacheEvict(value = CacheNames.NOTIFICATION_UNREAD, key = "#user.id")
     public Notification markAsRead(Long notificationId, User user) {
         try {
             Notification notification = notificationRepository.findById(notificationId)
@@ -138,6 +144,7 @@ public class NotificationService {
      * Mark all notifications as read for a user
      */
     @Transactional
+    @CacheEvict(value = CacheNames.NOTIFICATION_UNREAD, key = "#user.id")
     public void markAllAsRead(User user) {
         try {
             List<Notification> unreadNotifications = notificationRepository.findUnreadByUserId(user.getId());

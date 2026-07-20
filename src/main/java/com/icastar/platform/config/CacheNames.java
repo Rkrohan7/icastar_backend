@@ -96,4 +96,26 @@ public final class CacheNames {
 
     /** Auditions */
     public static final String AUDITIONS = "auditions";
+
+    // ==================== ARTIST PROFILE DATA (10 MINUTE TTL) ====================
+
+    /** Artist profile by user ID */
+    public static final String ARTIST_PROFILE_BY_USER = "artist-profile-by-user";
+
+    /** Artist profile by ID */
+    public static final String ARTIST_PROFILE_BY_ID = "artist-profile-by-id";
+
+    // ==================== BOOKMARKS & APPLICATIONS (5 MINUTE TTL) ====================
+
+    /** Bookmarked jobs by user */
+    public static final String BOOKMARKS_BY_USER = "bookmarks-by-user";
+
+    /** Bookmark check cache */
+    public static final String BOOKMARK_CHECK = "bookmark-check";
+
+    /** Application check cache */
+    public static final String APPLICATION_CHECK = "application-check";
+
+    /** Notification unread count */
+    public static final String NOTIFICATION_UNREAD = "notification-unread";
 }
