@@ -159,6 +159,34 @@ public class NotificationService {
     }
 
     /**
+     * Delete a notification
+     * SECURITY: Validates notification belongs to the user before deleting
+     */
+    @Transactional
+    public void deleteNotification(Long notificationId, User user) {
+        try {
+            Notification notification = notificationRepository.findById(notificationId)
+                    .orElseThrow(() -> new RuntimeException("Notification not found"));
+
+            // SECURITY CHECK: Verify notification belongs to this user
+            if (!notification.getUser().getId().equals(user.getId())) {
+                log.warn("Unauthorized attempt to delete notification {} by user {}",
+                        notificationId, user.getId());
+                throw new RuntimeException("Unauthorized: This notification does not belong to you");
+            }
+
+            notificationRepository.delete(notification);
+            log.info("Notification {} deleted by user {}", notificationId, user.getId());
+
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("Error deleting notification {}: {}", notificationId, e.getMessage(), e);
+            throw new RuntimeException("Failed to delete notification: " + e.getMessage(), e);
+        }
+    }
+
+    /**
      * Helper method to map Notification entity to DTO
      */
     private Map<String, Object> mapNotificationToDto(Notification notification) {

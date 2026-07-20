@@ -9,9 +9,9 @@ spring:
   
   # Database Configuration (MySQL)
   datasource:
-    url: ${DATABASE_URL:jdbc:mysql://icaster-db.cbiskmeg4xyr.ap-south-1.rds.amazonaws.com:3306/icastar_dev?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&createDatabaseIfNotExist=true}
-    username: ${DATABASE_USERNAME:admin}
-    password: ${DATABASE_PASSWORD:}
+    url: ${DATABASE_URL:jdbc:mysql://3.6.119.124:3306/icastar?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&createDatabaseIfNotExist=true}
+    username: ${DATABASE_USERNAME:icastar}
+    password: ${DATABASE_PASSWORD:Icastar@12345}
     driver-class-name: com.mysql.cj.jdbc.Driver
 
   # JPA/Hibernate Configuration

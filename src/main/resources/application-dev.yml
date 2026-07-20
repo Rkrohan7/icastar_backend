@@ -3,9 +3,9 @@ spring:
   config:
     import: optional:classpath:env.properties
   datasource:
-    url: jdbc:mysql://icaster-db.cbiskmeg4xyr.ap-south-1.rds.amazonaws.com:3306/icastar_dev?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&createDatabaseIfNotExist=true
-    username: admin
-    password: 93MndLi0u9WuV9veKLcC
+    url: jdbc:mysql://3.6.119.124:3306/icastar?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&createDatabaseIfNotExist=true
+    username: icastar
+    password: Icastar@12345
   
   jpa:
     hibernate:

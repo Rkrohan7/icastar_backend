@@ -30,17 +30,29 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
 
     @Transactional(readOnly = true)
-    @Cacheable(value = CacheNames.USER_BY_ID, key = "#id", unless = "#result == null || !#result.isPresent()")
     public Optional<User> findById(Long id) {
+        log.debug("Finding user by id: {}", id);
+        User user = findByIdCached(id);
+        return Optional.ofNullable(user);
+    }
+
+    @Cacheable(value = CacheNames.USER_BY_ID, key = "#id", unless = "#result == null")
+    public User findByIdCached(Long id) {
         log.debug("Cache MISS: Loading user by id: {}", id);
-        return userRepository.findById(id);
+        return userRepository.findById(id).orElse(null);
     }
 
     @Transactional(readOnly = true)
-    @Cacheable(value = CacheNames.USER_BY_EMAIL, key = "#email", unless = "#result == null || !#result.isPresent()")
     public Optional<User> findByEmail(String email) {
+        log.debug("Finding user by email: {}", email);
+        User user = findByEmailCached(email);
+        return Optional.ofNullable(user);
+    }
+
+    @Cacheable(value = CacheNames.USER_BY_EMAIL, key = "#email", unless = "#result == null")
+    public User findByEmailCached(String email) {
         log.debug("Cache MISS: Loading user by email: {}", email);
-        return userRepository.findByEmail(email);
+        return userRepository.findByEmail(email).orElse(null);
     }
 
     @Transactional(readOnly = true)

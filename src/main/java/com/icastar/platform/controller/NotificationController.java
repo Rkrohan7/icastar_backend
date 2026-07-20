@@ -219,4 +219,60 @@ public class NotificationController {
             return ResponseEntity.status(500).body(response);
         }
     }
+
+    /**
+     * Delete a notification
+     *
+     * DELETE /api/notifications/{id}
+     */
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Map<String, Object>> deleteNotification(
+            @PathVariable Long id,
+            Authentication authentication) {
+        try {
+            if (authentication == null || authentication.getName() == null) {
+                log.warn("Unauthorized access attempt to delete notification - no authentication");
+                Map<String, Object> response = new HashMap<>();
+                response.put("success", false);
+                response.put("message", "Authentication required");
+                return ResponseEntity.status(401).body(response);
+            }
+
+            String email = authentication.getName();
+            User user = userService.findByEmail(email)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+
+            log.info("Deleting notification {} for user: {}", id, email);
+
+            notificationService.deleteNotification(id, user);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Notification deleted successfully");
+
+            return ResponseEntity.ok(response);
+
+        } catch (RuntimeException e) {
+            String errorMessage = e.getMessage();
+            log.error("Error deleting notification: {}", errorMessage, e);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", errorMessage);
+
+            if (errorMessage != null && errorMessage.contains("Unauthorized")) {
+                return ResponseEntity.status(403).body(response);
+            } else if (errorMessage != null && errorMessage.contains("not found")) {
+                return ResponseEntity.status(404).body(response);
+            }
+            return ResponseEntity.badRequest().body(response);
+
+        } catch (Exception e) {
+            log.error("Unexpected error deleting notification: {}", e.getMessage(), e);
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", "An unexpected error occurred");
+            return ResponseEntity.status(500).body(response);
+        }
+    }
 }

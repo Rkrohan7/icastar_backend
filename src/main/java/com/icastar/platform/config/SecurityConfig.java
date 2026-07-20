@@ -67,6 +67,9 @@ public class SecurityConfig {
                         // CORS preflight is always public
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
+                        // Super Admin routes require ADMIN role
+                        .requestMatchers("/super-admin/**").hasRole("ADMIN")
+
                         // Everything else requires auth
                         .anyRequest().authenticated()
                 )
