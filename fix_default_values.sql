@@ -19,3 +19,4 @@ UPDATE users SET is_onboarding_complete = false WHERE is_onboarding_complete IS 
 
 -- Verify the changes
 SHOW CREATE TABLE users;
+ 
