@@ -1,6 +1,6 @@
 package com.icastar.platform.entity;
 
-import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import jakarta.persistence.Column;
@@ -29,7 +29,7 @@ public class ArtistProfileField extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "artist_profile_id", nullable = false)
-    @JsonBackReference
+    @JsonIgnore
     private ArtistProfile artistProfile;
 
     @ManyToOne(fetch = FetchType.LAZY)

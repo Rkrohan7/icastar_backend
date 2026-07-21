@@ -1,8 +1,7 @@
 package com.icastar.platform.entity;
 
-import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -39,10 +38,10 @@ public class ArtistType extends BaseEntity {
     private Integer sortOrder = 0;
 
     @OneToMany(mappedBy = "artistType", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    @JsonManagedReference
+    @JsonIgnore
     private List<ArtistTypeField> fields;
 
     @OneToMany(mappedBy = "artistType", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    @JsonBackReference
+    @JsonIgnore
     private List<ArtistProfile> artistProfiles;
 }
