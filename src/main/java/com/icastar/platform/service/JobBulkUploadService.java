@@ -214,10 +214,8 @@ public class JobBulkUploadService {
                 if (recruiter == null) {
                     response.addError(rowNumber, "recruiterId", "Recruiter not found with ID: " + recruiterId);
                     hasError = true;
-                } else if (recruiter.getRole() != User.UserRole.RECRUITER && recruiter.getRole() != User.UserRole.ADMIN) {
-                    response.addError(rowNumber, "recruiterId", "User must be a recruiter or admin: " + recruiterId);
-                    hasError = true;
                 }
+                // Note: No role check - admin bulk upload is trusted operation
             } catch (NumberFormatException e) {
                 response.addError(rowNumber, "recruiterId", "Invalid recruiter ID: " + recruiterIdStr);
                 hasError = true;
