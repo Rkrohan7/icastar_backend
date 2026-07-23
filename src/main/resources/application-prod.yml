@@ -1,7 +1,7 @@
 # Production Environment Configuration
 spring:
   datasource:
-    url: jdbc:mysql://prod-mysql-server:3306/icastar_prod?useSSL=true&serverTimezone=UTC&allowPublicKeyRetrieval=false
+    url: jdbc:mysql://prod-mysql-server:3306/icastar_prod?useSSL=true&serverTimezone=UTC&allowPublicKeyRetrieval=false&zeroDateTimeBehavior=convertToNull
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
     hikari:

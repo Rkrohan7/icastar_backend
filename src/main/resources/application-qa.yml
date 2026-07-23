@@ -1,7 +1,7 @@
 # QA Environment Configuration
 spring:
   datasource:
-    url: jdbc:mysql://qa-mysql-server:3306/icastar_qa?useSSL=true&serverTimezone=UTC
+    url: jdbc:mysql://qa-mysql-server:3306/icastar_qa?useSSL=true&serverTimezone=UTC&zeroDateTimeBehavior=convertToNull
     username: ${DB_USERNAME:qa_user}
     password: ${DB_PASSWORD:qa_password}
   
