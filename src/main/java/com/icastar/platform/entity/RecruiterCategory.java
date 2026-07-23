@@ -1,5 +1,7 @@
 package com.icastar.platform.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -19,6 +21,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @EntityListeners(AuditingEntityListener.class)
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class RecruiterCategory {
     
     @Id
@@ -55,8 +58,10 @@ public class RecruiterCategory {
     
     // Relationships
     @OneToMany(mappedBy = "recruiterCategory", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonIgnore
     private List<RecruiterCategoryField> fields;
-    
+
     @OneToMany(mappedBy = "recruiterCategory", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonIgnore
     private List<RecruiterProfile> profiles;
 }

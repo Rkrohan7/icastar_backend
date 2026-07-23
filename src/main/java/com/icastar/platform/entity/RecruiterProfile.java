@@ -1,5 +1,7 @@
 package com.icastar.platform.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -10,6 +12,7 @@ import java.util.List;
 @Table(name = "recruiter_profiles")
 @Data
 @EqualsAndHashCode(callSuper = true)
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class RecruiterProfile extends BaseEntity {
 
     @Id
@@ -18,6 +21,7 @@ public class RecruiterProfile extends BaseEntity {
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
+    @JsonIgnore
     private User user;
 
     @Column(name = "company_name", nullable = false)
@@ -75,6 +79,7 @@ public class RecruiterProfile extends BaseEntity {
     private List<Job> jobs;
 
     @OneToMany(mappedBy = "recruiterProfile", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonIgnore
     private List<RecruiterProfileField> dynamicFields;
 
     // Messages are handled at User level, not RecruiterProfile level
