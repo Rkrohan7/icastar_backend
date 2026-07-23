@@ -3,8 +3,10 @@ package com.icastar.platform.controller;
 import com.icastar.platform.dto.superadmin.*;
 import com.icastar.platform.entity.Job;
 import com.icastar.platform.entity.User;
+import com.icastar.platform.service.JobBulkUploadService;
 import com.icastar.platform.service.SuperAdminService;
 import com.icastar.platform.service.UserService;
+import org.springframework.web.multipart.MultipartFile;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -36,6 +38,7 @@ public class SuperAdminController {
 
     private final SuperAdminService superAdminService;
     private final UserService userService;
+    private final JobBulkUploadService jobBulkUploadService;
 
     // ==================== DASHBOARD APIs ====================
 
@@ -337,6 +340,26 @@ public class SuperAdminController {
         response.put("currentPage", jobs.getNumber());
         response.put("totalItems", jobs.getTotalElements());
         response.put("totalPages", jobs.getTotalPages());
+
+        return ResponseEntity.ok(response);
+    }
+
+    // ==================== BULK UPLOAD JOBS API ====================
+
+    @PostMapping("/jobs/bulk-upload")
+    @Operation(summary = "Bulk Upload Jobs", description = "Upload multiple jobs via Excel or CSV file")
+    public ResponseEntity<Map<String, Object>> bulkUploadJobs(
+            @Parameter(description = "Excel or CSV file") @RequestParam("file") MultipartFile file) {
+
+        log.info("Bulk upload jobs requested. File: {}, Size: {} bytes",
+                file.getOriginalFilename(), file.getSize());
+
+        BulkUploadResponseDto result = jobBulkUploadService.process(file);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", result.getFailureCount() == 0 || result.getSuccessCount() > 0);
+        response.put("message", "Bulk upload completed");
+        response.put("data", result);
 
         return ResponseEntity.ok(response);
     }
