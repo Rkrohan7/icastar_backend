@@ -328,6 +328,17 @@ public class JobBulkUploadService {
         job.setPublishedAt(LocalDateTime.now());
         job.setIsActive(true);
 
+        // Set audit fields explicitly (in case JPA auditing is not working)
+        LocalDateTime now = LocalDateTime.now();
+        job.setCreatedAt(now);
+        job.setUpdatedAt(now);
+
+        // Set default values for other fields
+        job.setViewsCount(0);
+        job.setApplicationsCount(0);
+        job.setIsUrgent(false);
+        job.setIsFeatured(false);
+
         return job;
     }
 
@@ -335,18 +346,20 @@ public class JobBulkUploadService {
         try {
             jobRepository.saveAll(jobs);
             response.setSuccessCount(response.getSuccessCount() + jobs.size());
-            log.debug("Saved batch of {} jobs", jobs.size());
+            log.info("Successfully saved batch of {} jobs", jobs.size());
         } catch (Exception e) {
-            log.error("Error saving batch: {}", e.getMessage());
+            log.error("Error saving batch: {} - {}", e.getClass().getSimpleName(), e.getMessage(), e);
             // If batch fails, try saving individually
             for (Job job : jobs) {
                 try {
                     jobRepository.save(job);
                     response.setSuccessCount(response.getSuccessCount() + 1);
+                    log.info("Saved job: {}", job.getTitle());
                 } catch (Exception ex) {
-                    log.error("Error saving job '{}': {}", job.getTitle(), ex.getMessage());
+                    String errorMsg = ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage();
+                    log.error("Error saving job '{}': {} - {}", job.getTitle(), ex.getClass().getSimpleName(), errorMsg, ex);
                     response.setFailureCount(response.getFailureCount() + 1);
-                    response.addError(0, "job", "Failed to save job: " + job.getTitle());
+                    response.addError(0, "job", "Failed to save job '" + job.getTitle() + "': " + errorMsg);
                 }
             }
         }
