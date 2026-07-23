@@ -214,8 +214,8 @@ public class JobBulkUploadService {
                 if (recruiter == null) {
                     response.addError(rowNumber, "recruiterId", "Recruiter not found with ID: " + recruiterId);
                     hasError = true;
-                } else if (recruiter.getRole() != User.UserRole.RECRUITER) {
-                    response.addError(rowNumber, "recruiterId", "User is not a recruiter: " + recruiterId);
+                } else if (recruiter.getRole() != User.UserRole.RECRUITER && recruiter.getRole() != User.UserRole.ADMIN) {
+                    response.addError(rowNumber, "recruiterId", "User must be a recruiter or admin: " + recruiterId);
                     hasError = true;
                 }
             } catch (NumberFormatException e) {
