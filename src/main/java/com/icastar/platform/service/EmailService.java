@@ -788,4 +788,101 @@ public class EmailService {
             }
         }
     }
+
+    /**
+     * Send profile completion reminder email
+     */
+    @Async
+    @Transactional
+    public void sendProfileCompletionReminderEmail(String toEmail, String userName, String userRole, String profileUrl) {
+        CommunicationLog logEntry = null;
+        try {
+            // Build HTML email
+            StringBuilder emailBody = new StringBuilder();
+            emailBody.append("<!DOCTYPE html>");
+            emailBody.append("<html><head><meta charset='UTF-8'></head><body style='font-family: Arial, sans-serif; line-height: 1.6; color: #333;'>");
+            emailBody.append("<div style='max-width: 600px; margin: 0 auto; padding: 20px;'>");
+
+            // Header
+            emailBody.append("<div style='background-color: #6366F1; color: white; padding: 30px; text-align: center; border-radius: 5px 5px 0 0;'>");
+            emailBody.append("<h1 style='margin: 0; font-size: 28px;'>Complete Your Profile</h1>");
+            emailBody.append("<p style='margin: 10px 0 0 0; font-size: 18px;'>Unlock more opportunities on iCastar</p>");
+            emailBody.append("</div>");
+
+            // Content
+            emailBody.append("<div style='background-color: #f9f9f9; padding: 30px; border-radius: 0 0 5px 5px;'>");
+            emailBody.append("<p style='font-size: 16px;'>Dear ").append(userName != null ? userName : "User").append(",</p>");
+            emailBody.append("<p style='font-size: 16px;'>We noticed that your iCastar profile is not yet complete. A complete profile helps you:</p>");
+
+            // Benefits
+            emailBody.append("<div style='background-color: white; padding: 20px; border-radius: 5px; margin: 20px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1);'>");
+            if ("ARTIST".equalsIgnoreCase(userRole)) {
+                emailBody.append("<ul style='padding-left: 20px; margin: 0;'>");
+                emailBody.append("<li style='margin-bottom: 10px;'>Get discovered by top recruiters and casting directors</li>");
+                emailBody.append("<li style='margin-bottom: 10px;'>Increase your chances of getting selected for auditions</li>");
+                emailBody.append("<li style='margin-bottom: 10px;'>Showcase your talent with a professional portfolio</li>");
+                emailBody.append("<li style='margin-bottom: 10px;'>Receive relevant job alerts matching your skills</li>");
+                emailBody.append("</ul>");
+            } else {
+                emailBody.append("<ul style='padding-left: 20px; margin: 0;'>");
+                emailBody.append("<li style='margin-bottom: 10px;'>Build trust with artists by showcasing your company</li>");
+                emailBody.append("<li style='margin-bottom: 10px;'>Get better responses to your job postings</li>");
+                emailBody.append("<li style='margin-bottom: 10px;'>Access verified and talented artists</li>");
+                emailBody.append("<li style='margin-bottom: 10px;'>Streamline your hiring process</li>");
+                emailBody.append("</ul>");
+            }
+            emailBody.append("</div>");
+
+            // Call to action
+            emailBody.append("<div style='text-align: center; margin: 30px 0;'>");
+            emailBody.append("<a href='").append(profileUrl != null ? profileUrl : "https://icastar.com/profile").append("' style='display: inline-block; background-color: #6366F1; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-size: 16px; font-weight: bold;'>Complete Your Profile Now</a>");
+            emailBody.append("</div>");
+
+            emailBody.append("<p style='font-size: 16px;'>Completing your profile only takes a few minutes and can make a big difference in your iCastar experience!</p>");
+
+            // Footer
+            emailBody.append("<div style='margin-top: 30px; padding-top: 20px; border-top: 2px solid #e0e0e0; text-align: center; color: #666;'>");
+            emailBody.append("<p style='margin: 5px 0;'>Best regards,</p>");
+            emailBody.append("<p style='margin: 5px 0; font-weight: bold;'>The iCastar Team</p>");
+            emailBody.append("<p style='margin: 15px 0 5px 0; font-size: 12px; color: #999;'>If you have any questions, contact us at support@icastar.com</p>");
+            emailBody.append("</div>");
+
+            emailBody.append("</div></div></body></html>");
+
+            // Create communication log
+            String metadata = String.format("{\"userName\":\"%s\",\"userRole\":\"%s\",\"type\":\"profile_completion_reminder\"}",
+                    userName != null ? userName : "", userRole != null ? userRole : "");
+
+            logEntry = communicationLogService.createLog(
+                CommunicationLog.CommunicationType.EMAIL,
+                toEmail,
+                null,
+                "Complete Your iCastar Profile",
+                emailBody.toString(),
+                "PROFILE_COMPLETION_REMINDER",
+                null,
+                metadata
+            );
+
+            // Send HTML email
+            MimeMessage mimeMessage = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, "UTF-8");
+            helper.setFrom(fromEmail);
+            helper.setTo(toEmail);
+            helper.setSubject("Complete Your iCastar Profile");
+            helper.setText(emailBody.toString(), true);
+
+            mailSender.send(mimeMessage);
+
+            // Mark as sent
+            communicationLogService.markAsSent(logEntry.getId(), null);
+            log.info("Profile completion reminder email sent successfully to: {}", toEmail);
+
+        } catch (Exception e) {
+            log.error("Failed to send profile completion reminder email to: {}", toEmail, e);
+            if (logEntry != null) {
+                communicationLogService.markAsFailed(logEntry.getId(), e.getMessage());
+            }
+        }
+    }
 }

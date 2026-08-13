@@ -74,4 +74,8 @@ public interface ArtistProfileRepository extends JpaRepository<ArtistProfile, Lo
     // Count methods for Super Admin
     @Query("SELECT COUNT(ap) FROM ArtistProfile ap WHERE ap.artistType.id = :artistTypeId")
     Long countByArtistTypeId(@Param("artistTypeId") Long artistTypeId);
+
+    // Find artists with incomplete profiles (for reminder emails)
+    @Query("SELECT ap FROM ArtistProfile ap WHERE ap.isProfileComplete = false AND ap.user.status = 'ACTIVE' AND ap.user.accountStatus = 'ACTIVE'")
+    List<ArtistProfile> findIncompleteProfiles();
 }

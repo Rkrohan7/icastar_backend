@@ -44,6 +44,8 @@ public class SuperAdminService {
     private final ReportRepository reportRepository;
     private final PasswordEncoder passwordEncoder;
     private final ObjectMapper objectMapper;
+    private final EmailService emailService;
+    private final CommunicationLogRepository communicationLogRepository;
 
     // ==================== ADMIN USER MANAGEMENT ====================
 
@@ -1264,5 +1266,103 @@ public class SuperAdminService {
                         .build())
                 .sorted((a, b) -> Long.compare(b.getArtistCount() + b.getJobCount(), a.getArtistCount() + a.getJobCount()))
                 .collect(Collectors.toList());
+    }
+
+    // ==================== INCOMPLETE PROFILE REMINDERS ====================
+
+    /**
+     * Send reminder emails to users with incomplete profiles
+     * Prevents spam by checking if a reminder was already sent within the last 24 hours
+     */
+    @Transactional
+    public IncompleteProfileReminderResponseDto sendIncompleteProfileReminders() {
+        log.info("Starting incomplete profile reminder process");
+
+        LocalDateTime oneDayAgo = LocalDateTime.now().minusHours(24);
+        String templateName = "PROFILE_COMPLETION_REMINDER";
+        String profileUrl = "https://icastar.com/profile";
+
+        int totalTargeted = 0;
+        int emailsSent = 0;
+        int emailsFailed = 0;
+
+        // Get artists with incomplete profiles
+        List<ArtistProfile> incompleteArtists = artistProfileRepository.findIncompleteProfiles();
+        log.info("Found {} artists with incomplete profiles", incompleteArtists.size());
+
+        for (ArtistProfile artist : incompleteArtists) {
+            User user = artist.getUser();
+            if (user == null || user.getEmail() == null) {
+                continue;
+            }
+
+            totalTargeted++;
+
+            // Check if reminder was already sent in the last 24 hours
+            boolean alreadySent = communicationLogRepository.existsByRecipientEmailAndTemplateNameAndCreatedAtAfter(
+                user.getEmail(), templateName, oneDayAgo);
+
+            if (alreadySent) {
+                log.debug("Skipping reminder for {} - already sent within 24 hours", user.getEmail());
+                continue;
+            }
+
+            try {
+                String userName = artist.getFirstName() != null ? artist.getFirstName() :
+                                 (user.getFirstName() != null ? user.getFirstName() : "Artist");
+                emailService.sendProfileCompletionReminderEmail(user.getEmail(), userName, "ARTIST", profileUrl);
+                emailsSent++;
+                log.debug("Sent profile reminder to artist: {}", user.getEmail());
+            } catch (Exception e) {
+                emailsFailed++;
+                log.error("Failed to send profile reminder to artist: {}", user.getEmail(), e);
+            }
+        }
+
+        // Get recruiters with incomplete onboarding
+        List<User> recruiters = userRepository.findByRole(User.UserRole.RECRUITER);
+        for (User recruiter : recruiters) {
+            // Skip if onboarding is complete or user is not active
+            if (recruiter.getIsOnboardingComplete() != null && recruiter.getIsOnboardingComplete()) {
+                continue;
+            }
+            if (recruiter.getStatus() != User.UserStatus.ACTIVE ||
+                recruiter.getAccountStatus() != User.AccountStatus.ACTIVE) {
+                continue;
+            }
+            if (recruiter.getEmail() == null) {
+                continue;
+            }
+
+            totalTargeted++;
+
+            // Check if reminder was already sent in the last 24 hours
+            boolean alreadySent = communicationLogRepository.existsByRecipientEmailAndTemplateNameAndCreatedAtAfter(
+                recruiter.getEmail(), templateName, oneDayAgo);
+
+            if (alreadySent) {
+                log.debug("Skipping reminder for {} - already sent within 24 hours", recruiter.getEmail());
+                continue;
+            }
+
+            try {
+                String userName = recruiter.getFirstName() != null ? recruiter.getFirstName() : "Recruiter";
+                emailService.sendProfileCompletionReminderEmail(recruiter.getEmail(), userName, "RECRUITER", profileUrl);
+                emailsSent++;
+                log.debug("Sent profile reminder to recruiter: {}", recruiter.getEmail());
+            } catch (Exception e) {
+                emailsFailed++;
+                log.error("Failed to send profile reminder to recruiter: {}", recruiter.getEmail(), e);
+            }
+        }
+
+        log.info("Incomplete profile reminder process completed - Total: {}, Sent: {}, Failed: {}",
+                totalTargeted, emailsSent, emailsFailed);
+
+        return IncompleteProfileReminderResponseDto.builder()
+                .totalTargeted(totalTargeted)
+                .emailsSent(emailsSent)
+                .emailsFailed(emailsFailed)
+                .build();
     }
 }

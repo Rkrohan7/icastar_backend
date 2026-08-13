@@ -1066,4 +1066,31 @@ public class SuperAdminController {
 
         return ResponseEntity.ok(response);
     }
+
+    // ==================== USER REMINDER APIs ====================
+
+    @PostMapping("/users/incomplete-profile-reminder")
+    @Operation(summary = "Send Incomplete Profile Reminders", description = "Send reminder emails to all users with incomplete profiles. Prevents spam by limiting to one email per user per 24 hours.")
+    public ResponseEntity<Map<String, Object>> sendIncompleteProfileReminders() {
+        log.info("Sending incomplete profile reminders requested");
+
+        try {
+            IncompleteProfileReminderResponseDto result = superAdminService.sendIncompleteProfileReminders();
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Reminder emails processed");
+            response.put("data", result);
+
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            log.error("Failed to send incomplete profile reminders", e);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", e.getMessage());
+
+            return ResponseEntity.internalServerError().body(response);
+        }
+    }
 }

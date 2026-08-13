@@ -95,4 +95,8 @@ public interface CommunicationLogRepository extends JpaRepository<CommunicationL
            "COUNT(*) as total " +
            "FROM CommunicationLog cl WHERE cl.createdAt >= :since")
     Object[] getCommunicationStats(@Param("since") LocalDateTime since);
+
+    // Check if a reminder was sent to this email within the time period
+    @Query("SELECT COUNT(cl) > 0 FROM CommunicationLog cl WHERE cl.recipientEmail = :email AND cl.templateName = :templateName AND cl.createdAt >= :since AND (cl.status = 'SENT' OR cl.status = 'DELIVERED')")
+    boolean existsByRecipientEmailAndTemplateNameAndCreatedAtAfter(@Param("email") String email, @Param("templateName") String templateName, @Param("since") LocalDateTime since);
 }
