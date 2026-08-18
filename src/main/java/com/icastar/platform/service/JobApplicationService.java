@@ -2,6 +2,7 @@ package com.icastar.platform.service;
 
 import com.icastar.platform.dto.job.CreateJobApplicationDto;
 import com.icastar.platform.dto.job.JobApplicationDto;
+import com.icastar.platform.dto.job.PublicApplyRequestDto;
 import com.icastar.platform.dto.job.UpdateJobApplicationDto;
 import com.icastar.platform.entity.Job;
 import com.icastar.platform.entity.JobApplication;
@@ -145,6 +146,55 @@ public class JobApplicationService {
         jobService.incrementApplications(job.getId());
 
         log.info("New job application created: {} applied for job {}", artist.getUser().getEmail(), job.getTitle());
+        return savedApplication;
+    }
+
+    /**
+     * Create a public application from a guest (no login required)
+     */
+    public JobApplication createPublicApplication(Long jobId, PublicApplyRequestDto applyDto) throws BadRequestException {
+        Job job = jobRepository.findById(jobId)
+                .orElseThrow(() -> new RuntimeException("Job not found"));
+
+        // Check if job is active and accepting applications
+        if (job.getStatus() != Job.JobStatus.ACTIVE) {
+            throw new BadRequestException("This job is not currently accepting applications");
+        }
+
+        // Check if application deadline has passed
+        if (job.getApplicationDeadline() != null && job.getApplicationDeadline().isBefore(java.time.LocalDate.now())) {
+            throw new BadRequestException("Application deadline has passed for this job");
+        }
+
+        // Check for duplicate application by email or phone
+        Optional<JobApplication> existingApplication = jobApplicationRepository
+                .findByJobIdAndGuestEmailOrPhone(jobId, applyDto.getEmail(), applyDto.getPhone());
+        if (existingApplication.isPresent()) {
+            throw new BadRequestException("You have already applied for this job with this email or phone number");
+        }
+
+        // Create the application
+        JobApplication application = new JobApplication();
+        application.setJob(job);
+        application.setArtist(null); // Guest application, no artist profile
+        application.setGuestFullName(applyDto.getFullName());
+        application.setGuestEmail(applyDto.getEmail());
+        application.setGuestPhone(applyDto.getPhone());
+        application.setGuestAddress(applyDto.getAddress());
+        application.setGuestExperienceYears(applyDto.getExperienceYears());
+        application.setCoverLetter(applyDto.getCoverLetter());
+        application.setExpectedSalary(applyDto.getExpectedSalary());
+        application.setSource(JobApplication.ApplicationSource.PUBLIC_LINK);
+        application.setAppliedAt(LocalDateTime.now());
+        application.setStatus(JobApplication.ApplicationStatus.APPLIED);
+
+        JobApplication savedApplication = jobApplicationRepository.save(application);
+
+        // Increment job applications count
+        jobService.incrementApplications(job.getId());
+
+        log.info("New public job application created: {} applied for job {} via public link",
+                applyDto.getEmail(), job.getTitle());
         return savedApplication;
     }
 

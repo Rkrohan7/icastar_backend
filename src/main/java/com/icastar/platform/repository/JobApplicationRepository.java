@@ -187,4 +187,8 @@ public interface JobApplicationRepository extends JpaRepository<JobApplication, 
     // Count completed projects for artist in date range
     @Query("SELECT COUNT(ja) FROM JobApplication ja WHERE ja.artist.id = :artistId AND ja.isHired = true AND ja.hiredAt BETWEEN :startDate AND :endDate")
     Long countByArtistIdAndHiredBetween(@Param("artistId") Long artistId, @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
+
+    // Check if guest has already applied for a job (by email or phone)
+    @Query("SELECT ja FROM JobApplication ja WHERE ja.job.id = :jobId AND (ja.guestEmail = :email OR ja.guestPhone = :phone)")
+    Optional<JobApplication> findByJobIdAndGuestEmailOrPhone(@Param("jobId") Long jobId, @Param("email") String email, @Param("phone") String phone);
 }

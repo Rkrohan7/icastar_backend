@@ -25,8 +25,29 @@ public class JobApplication extends BaseEntity {
     private Job job;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "artist_id", nullable = false)
+    @JoinColumn(name = "artist_id", nullable = true)
     private ArtistProfile artist;
+
+    // Guest applicant fields (for public link applications without login)
+    @Column(name = "guest_full_name")
+    private String guestFullName;
+
+    @Column(name = "guest_email")
+    private String guestEmail;
+
+    @Column(name = "guest_phone")
+    private String guestPhone;
+
+    @Column(name = "guest_address")
+    private String guestAddress;
+
+    @Column(name = "guest_experience_years")
+    private Integer guestExperienceYears;
+
+    // Application source to identify where application came from
+    @Column(name = "source")
+    @Enumerated(EnumType.STRING)
+    private ApplicationSource source = ApplicationSource.PLATFORM;
 
     @Column(name = "status")
     @Enumerated(EnumType.STRING)
@@ -103,5 +124,10 @@ public class JobApplication extends BaseEntity {
         WITHDRAWN,         // Candidate withdrew
         HIRED,             // Successfully hired
         ON_HOLD            // Application on hold
+    }
+
+    public enum ApplicationSource {
+        PLATFORM,      // Normal application via logged-in user
+        PUBLIC_LINK    // Application via public job link (guest)
     }
 }
