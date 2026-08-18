@@ -62,6 +62,9 @@ public final class CacheNames {
     /** Individual job by ID */
     public static final String JOBS_BY_ID = "jobs-by-id";
 
+    /** Public job DTO by ID - safe for Redis caching (no Hibernate entities) */
+    public static final String PUBLIC_JOBS_BY_ID = "public-jobs-by-id";
+
     /** Count statistics (users, jobs, applications) */
     public static final String COUNT_STATS = "count-stats";
 

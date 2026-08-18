@@ -123,6 +123,7 @@ public class RedisConfig {
 
         // 1 HOUR CACHES - Individual entities and counts
         cacheConfigurations.put(CacheNames.JOBS_BY_ID, defaultConfig.entryTtl(Duration.ofHours(1)));
+        cacheConfigurations.put(CacheNames.PUBLIC_JOBS_BY_ID, defaultConfig.entryTtl(Duration.ofHours(1)));
         cacheConfigurations.put(CacheNames.COUNT_STATS, defaultConfig.entryTtl(Duration.ofHours(1)));
 
         // 30 MINUTE CACHES - User data
