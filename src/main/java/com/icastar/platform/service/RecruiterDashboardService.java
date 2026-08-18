@@ -518,32 +518,58 @@ public class RecruiterDashboardService {
     }
     
     private RecentApplicationDto convertToRecentApplicationDto(JobApplication application) {
+        // Handle guest applications (where artist is null)
+        boolean isGuestApplication = application.getArtist() == null;
+
+        Long artistId = null;
+        String artistName = "Guest Applicant";
+        String artistEmail = "N/A";
+        String artistPhone = "N/A";
+        String artistLocation = "N/A";
+        int artistExperience = 0;
+
+        if (isGuestApplication) {
+            // Use guest applicant info
+            artistName = application.getGuestFullName() != null ? application.getGuestFullName() : "Guest Applicant";
+            artistEmail = application.getGuestEmail() != null ? application.getGuestEmail() : "N/A";
+            artistPhone = application.getGuestPhone() != null ? application.getGuestPhone() : "N/A";
+            artistLocation = application.getGuestAddress() != null ? application.getGuestAddress() : "N/A";
+            artistExperience = application.getGuestExperienceYears() != null ? application.getGuestExperienceYears() : 0;
+        } else {
+            // Use artist profile info
+            artistId = application.getArtist().getId();
+            artistName = application.getArtist().getFirstName() + " " + application.getArtist().getLastName();
+            artistEmail = application.getArtist().getUser() != null ? application.getArtist().getUser().getEmail() : "N/A";
+            artistLocation = application.getArtist().getLocation() != null ? application.getArtist().getLocation() : "N/A";
+            artistExperience = application.getArtist().getExperienceYears() != null ? application.getArtist().getExperienceYears() : 0;
+        }
+
         return RecentApplicationDto.builder()
                 .id(application.getId())
                 .jobId(application.getJob().getId())
                 .jobTitle(application.getJob().getTitle())
-                .artistId(application.getArtist().getId())
-                .artistName(application.getArtist().getFirstName() + " " + application.getArtist().getLastName())
-                .artistEmail(application.getArtist().getUser().getEmail())
-                .artistPhone("N/A") // Placeholder
-                .artistCategory("Unknown") // Placeholder
+                .artistId(artistId)
+                .artistName(artistName)
+                .artistEmail(artistEmail)
+                .artistPhone(artistPhone)
+                .artistCategory(isGuestApplication ? "Public Link Applicant" : "Unknown")
                 .applicationStatus(application.getStatus().name())
                 .appliedAt(application.getAppliedAt())
                 .lastUpdatedAt(application.getUpdatedAt())
-                .artistBio("N/A") // Placeholder
-                .artistLocation("N/A") // Placeholder
-                .artistExperience(0) // Placeholder
-                .artistSkills("N/A") // Placeholder
-                .artistPortfolio("N/A") // Placeholder
+                .artistBio("N/A")
+                .artistLocation(artistLocation)
+                .artistExperience(artistExperience)
+                .artistSkills("N/A")
+                .artistPortfolio("N/A")
                 .coverLetter(application.getCoverLetter())
-                .expectedSalary("N/A") // Placeholder
-                .availability("N/A") // Placeholder
-                .additionalNotes("N/A") // Placeholder
-                .canViewProfile(true)
+                .expectedSalary(application.getExpectedSalary() != null ? application.getExpectedSalary().toString() : "N/A")
+                .availability("N/A")
+                .additionalNotes("N/A")
+                .canViewProfile(!isGuestApplication)
                 .canAccept(true)
                 .canReject(true)
                 .canShortlist(true)
-                .canMessage(true)
+                .canMessage(!isGuestApplication)
                 .build();
     }
     
@@ -1053,9 +1079,14 @@ public class RecruiterDashboardService {
                         if (isShortlisted != null && !app.getIsShortlisted().equals(isShortlisted)) {
                             return false;
                         }
-                        // Filter by experience if specified
+                        // Filter by experience if specified (only for platform applications)
                         if (minExperience != null || maxExperience != null) {
-                            Integer experience = app.getArtist().getExperienceYears();
+                            Integer experience = null;
+                            if (app.getArtist() != null) {
+                                experience = app.getArtist().getExperienceYears();
+                            } else if (app.getGuestExperienceYears() != null) {
+                                experience = app.getGuestExperienceYears();
+                            }
                             if (experience == null) return false;
                             if (minExperience != null && experience < minExperience) return false;
                             if (maxExperience != null && experience > maxExperience) return false;
@@ -1065,31 +1096,51 @@ public class RecruiterDashboardService {
                     .map(application -> {
                         Map<String, Object> applicant = new HashMap<>();
                         ArtistProfile artist = application.getArtist();
+                        boolean isGuestApplication = artist == null;
 
                         // Application details
                         applicant.put("applicationId", application.getId());
                         applicant.put("status", application.getStatus().name());
                         applicant.put("appliedAt", application.getAppliedAt());
                         applicant.put("reviewedAt", application.getReviewedAt());
+                        applicant.put("isGuestApplication", isGuestApplication);
+                        applicant.put("applicationSource", application.getSource() != null ? application.getSource().name() : "PLATFORM");
 
-                        // Artist basic info
-                        applicant.put("artistId", artist.getId());
-                        applicant.put("firstName", artist.getFirstName());
-                        applicant.put("lastName", artist.getLastName());
-                        applicant.put("fullName", artist.getFirstName() + " " + artist.getLastName());
-                        applicant.put("stageName", artist.getStageName());
-                        applicant.put("email", artist.getUser().getEmail());
-                        applicant.put("phone", artist.getUser().getMobile());
-
-                        // Artist profile details
-                        applicant.put("artistType", artist.getArtistType() != null ? artist.getArtistType().getName() : null);
-                        applicant.put("location", artist.getLocation());
-                        applicant.put("bio", artist.getBio());
-                        applicant.put("experienceYears", artist.getExperienceYears());
-                        applicant.put("skills", artist.getSkills());
-                        applicant.put("languagesSpoken", artist.getLanguagesSpoken());
-                        applicant.put("hourlyRate", artist.getHourlyRate());
-                        applicant.put("isVerified", artist.getIsVerifiedBadge());
+                        if (isGuestApplication) {
+                            // Guest applicant info
+                            applicant.put("artistId", null);
+                            applicant.put("firstName", application.getGuestFullName());
+                            applicant.put("lastName", "");
+                            applicant.put("fullName", application.getGuestFullName() != null ? application.getGuestFullName() : "Guest Applicant");
+                            applicant.put("stageName", null);
+                            applicant.put("email", application.getGuestEmail());
+                            applicant.put("phone", application.getGuestPhone());
+                            applicant.put("artistType", "Public Link Applicant");
+                            applicant.put("location", application.getGuestAddress());
+                            applicant.put("bio", null);
+                            applicant.put("experienceYears", application.getGuestExperienceYears());
+                            applicant.put("skills", null);
+                            applicant.put("languagesSpoken", null);
+                            applicant.put("hourlyRate", null);
+                            applicant.put("isVerified", false);
+                        } else {
+                            // Artist basic info
+                            applicant.put("artistId", artist.getId());
+                            applicant.put("firstName", artist.getFirstName());
+                            applicant.put("lastName", artist.getLastName());
+                            applicant.put("fullName", artist.getFirstName() + " " + artist.getLastName());
+                            applicant.put("stageName", artist.getStageName());
+                            applicant.put("email", artist.getUser().getEmail());
+                            applicant.put("phone", artist.getUser().getMobile());
+                            applicant.put("artistType", artist.getArtistType() != null ? artist.getArtistType().getName() : null);
+                            applicant.put("location", artist.getLocation());
+                            applicant.put("bio", artist.getBio());
+                            applicant.put("experienceYears", artist.getExperienceYears());
+                            applicant.put("skills", artist.getSkills());
+                            applicant.put("languagesSpoken", artist.getLanguagesSpoken());
+                            applicant.put("hourlyRate", artist.getHourlyRate());
+                            applicant.put("isVerified", artist.getIsVerifiedBadge());
+                        }
 
                         // Application specific details
                         applicant.put("coverLetter", application.getCoverLetter());
@@ -1217,9 +1268,20 @@ public class RecruiterDashboardService {
                         hire.put("id", application.getId());
                         hire.put("jobId", application.getJob().getId());
                         hire.put("jobTitle", application.getJob().getTitle());
-                        hire.put("artistId", application.getArtist().getId());
-                        hire.put("artistName", application.getArtist().getFirstName() + " " + application.getArtist().getLastName());
-                        hire.put("artistEmail", application.getArtist().getUser().getEmail());
+
+                        // Handle guest applications
+                        if (application.getArtist() != null) {
+                            hire.put("artistId", application.getArtist().getId());
+                            hire.put("artistName", application.getArtist().getFirstName() + " " + application.getArtist().getLastName());
+                            hire.put("artistEmail", application.getArtist().getUser().getEmail());
+                            hire.put("isGuestApplication", false);
+                        } else {
+                            hire.put("artistId", null);
+                            hire.put("artistName", application.getGuestFullName() != null ? application.getGuestFullName() : "Guest Applicant");
+                            hire.put("artistEmail", application.getGuestEmail());
+                            hire.put("isGuestApplication", true);
+                        }
+
                         hire.put("status", application.getStatus());
                         hire.put("hiredAt", application.getHiredAt());
                         hire.put("expectedSalary", application.getExpectedSalary());
@@ -1748,15 +1810,25 @@ public class RecruiterDashboardService {
             return applications.getContent().stream().map(app -> {
                 Map<String, Object> applicant = new HashMap<>();
                 ArtistProfile artist = app.getArtist();
+                boolean isGuestApplication = artist == null;
 
                 applicant.put("id", app.getId());
-                applicant.put("name", artist.getFirstName() + " " + artist.getLastName());
-                applicant.put("avatar", artist.getProfileUrl());
                 applicant.put("job", app.getJob().getTitle());
-                applicant.put("skills", artist.getSkills());
                 applicant.put("status", app.getStatus().name());
                 applicant.put("appliedAt", app.getCreatedAt());
-                applicant.put("email", artist.getUser().getEmail());
+                applicant.put("isGuestApplication", isGuestApplication);
+
+                if (isGuestApplication) {
+                    applicant.put("name", app.getGuestFullName() != null ? app.getGuestFullName() : "Guest Applicant");
+                    applicant.put("avatar", null);
+                    applicant.put("skills", null);
+                    applicant.put("email", app.getGuestEmail());
+                } else {
+                    applicant.put("name", artist.getFirstName() + " " + artist.getLastName());
+                    applicant.put("avatar", artist.getProfileUrl());
+                    applicant.put("skills", artist.getSkills());
+                    applicant.put("email", artist.getUser().getEmail());
+                }
 
                 return applicant;
             }).collect(Collectors.toList());

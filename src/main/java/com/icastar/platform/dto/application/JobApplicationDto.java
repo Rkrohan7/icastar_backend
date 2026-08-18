@@ -19,7 +19,7 @@ public class JobApplicationDto {
     private JobApplication.ApplicationStatus status;
     private LocalDateTime appliedAt;
     private LocalDateTime updatedAt;
-    
+
     // Artist profile information
     private String artistBio;
     private String artistLocation;
@@ -33,25 +33,62 @@ public class JobApplicationDto {
     private Boolean isJobRemote;
     private BigDecimal jobBudgetMin;
     private BigDecimal jobBudgetMax;
-    
+
     // Recruiter information
     private Long recruiterId;
     private String recruiterName;
     private String companyName;
 
+    // Guest applicant information (for PUBLIC_LINK applications)
+    private String guestFullName;
+    private String guestEmail;
+    private String guestPhone;
+    private String guestAddress;
+    private Integer guestExperienceYears;
+    private String applicationSource; // PLATFORM or PUBLIC_LINK
+    private Boolean isGuestApplication;
+
+    public JobApplicationDto() {
+        // Default constructor
+    }
+
     public JobApplicationDto(JobApplication application) {
         this.id = application.getId();
-        this.jobId = application.getJob().getId();
-        this.jobTitle = application.getJob().getTitle();
-        this.artistId = application.getArtist().getId();
         this.coverLetter = application.getCoverLetter();
-        this.proposedRate = application.getExpectedSalary() != null ? 
+        this.proposedRate = application.getExpectedSalary() != null ?
             BigDecimal.valueOf(application.getExpectedSalary()) : null;
         this.status = application.getStatus();
         this.appliedAt = application.getAppliedAt();
         this.updatedAt = application.getUpdatedAt();
-        
+
+        // Set application source
+        this.applicationSource = application.getSource() != null ?
+            application.getSource().name() : "PLATFORM";
+        this.isGuestApplication = application.getArtist() == null;
+
+        // Handle job information
+        if (application.getJob() != null) {
+            this.jobId = application.getJob().getId();
+            this.jobTitle = application.getJob().getTitle();
+            this.jobDescription = application.getJob().getDescription();
+            this.jobLocation = application.getJob().getLocation();
+            this.isJobRemote = application.getJob().getIsRemote();
+            this.jobBudgetMin = application.getJob().getBudgetMin();
+            this.jobBudgetMax = application.getJob().getBudgetMax();
+
+            if (application.getJob().getRecruiter() != null) {
+                this.recruiterId = application.getJob().getRecruiter().getId();
+                this.recruiterName = application.getJob().getRecruiter().getFirstName() + " " +
+                                   application.getJob().getRecruiter().getLastName();
+                if (application.getJob().getRecruiter().getRecruiterProfile() != null) {
+                    this.companyName = application.getJob().getRecruiter().getRecruiterProfile().getCompanyName();
+                }
+            }
+        }
+
+        // Handle artist information (logged-in user application)
         if (application.getArtist() != null) {
+            this.artistId = application.getArtist().getId();
             this.artistName = application.getArtist().getFirstName() + " " +
                             application.getArtist().getLastName();
             this.artistBio = application.getArtist().getBio();
@@ -61,21 +98,21 @@ public class JobApplicationDto {
             this.isArtistVerified = application.getArtist().getUser() != null ?
                 application.getArtist().getUser().getIsVerified() : false;
             this.artistProfileCompletionPercentage = calculateProfileCompletion(application.getArtist());
-        }
-        
-        if (application.getJob() != null) {
-            this.jobDescription = application.getJob().getDescription();
-            this.jobLocation = application.getJob().getLocation();
-            this.isJobRemote = application.getJob().getIsRemote();
-            this.jobBudgetMin = application.getJob().getBudgetMin();
-            this.jobBudgetMax = application.getJob().getBudgetMax();
-            
-            if (application.getJob().getRecruiter() != null) {
-                this.recruiterId = application.getJob().getRecruiter().getId();
-                this.recruiterName = application.getJob().getRecruiter().getFirstName() + " " +
-                                   application.getJob().getRecruiter().getLastName();
-                this.companyName = application.getJob().getRecruiter().getEmail(); // Using email as company name fallback
-            }
+        } else {
+            // Handle guest applicant information (PUBLIC_LINK application)
+            this.guestFullName = application.getGuestFullName();
+            this.guestEmail = application.getGuestEmail();
+            this.guestPhone = application.getGuestPhone();
+            this.guestAddress = application.getGuestAddress();
+            this.guestExperienceYears = application.getGuestExperienceYears();
+
+            // Use guest info for artist fields for backward compatibility
+            this.artistName = application.getGuestFullName();
+            this.artistLocation = application.getGuestAddress();
+            this.artistExperience = application.getGuestExperienceYears() != null ?
+                application.getGuestExperienceYears().toString() + " years" : "Not specified";
+            this.isArtistVerified = false;
+            this.artistProfileCompletionPercentage = 0;
         }
     }
 
