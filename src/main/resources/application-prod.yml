@@ -10,10 +10,10 @@ spring:
       connection-timeout: 30000
       idle-timeout: 600000
       max-lifetime: 1800000
-  
+
   jpa:
     hibernate:
-      ddl-auto: none  # No automatic schema changes in production
+      ddl-auto: update  # Auto update schema - creates tables automatically
     show-sql: false
     properties:
       hibernate:
@@ -23,6 +23,35 @@ spring:
           batch_size: 20
         order_inserts: true
         order_updates: true
+
+  # Production Mail Configuration
+  mail:
+    host: ${MAIL_HOST}
+    port: 587
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+          connectiontimeout: 5000
+          timeout: 3000
+          writetimeout: 5000
+
+  # Production JWT Configuration
+  security:
+    jwt:
+      secret: ${JWT_SECRET:icastar-production-jwt-secret-key-2024-very-secure-minimum-256-bits}
+      expiration: 3600000  # 1 hour for production
+
+  # Production Flyway - Auto run migrations on startup
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    validate-on-migrate: true
+    locations: classpath:db/migration
 
 # Production Server Configuration
 server:
@@ -87,34 +116,6 @@ springdoc:
     enabled: false  # Disable Swagger UI in production
   api-docs:
     enabled: false  # Disable API docs in production
-
-# Production Mail Configuration
-  mail:
-    host: ${MAIL_HOST}
-    port: 587
-    username: ${MAIL_USERNAME}
-    password: ${MAIL_PASSWORD}
-    properties:
-      mail:
-        smtp:
-          auth: true
-          starttls:
-            enable: true
-          connectiontimeout: 5000
-          timeout: 3000
-          writetimeout: 5000
-
-# Production JWT Configuration
-  security:
-    jwt:
-      secret: ${JWT_SECRET:icastar-production-jwt-secret-key-2024-very-secure-minimum-256-bits}
-      expiration: 3600000  # 1 hour for production
-
-# Production Flyway
-  flyway:
-    enabled: true
-    baseline-on-migrate: true
-    validate-on-migrate: true
 
 # Production CORS
 cors:
