@@ -2,10 +2,15 @@ package com.icastar.platform.service;
 
 import com.icastar.platform.dto.artist.ArtistProfileCompleteDto;
 import com.icastar.platform.dto.artist.ArtistProfileCompleteDto.DocumentDto;
+import com.icastar.platform.dto.artist.ArtistTypeDto;
 import com.icastar.platform.entity.ArtistProfile;
+import com.icastar.platform.entity.ArtistProfileArtistType;
+import com.icastar.platform.entity.ArtistType;
 import com.icastar.platform.entity.Document;
 import com.icastar.platform.entity.User;
 import com.icastar.platform.repository.ArtistProfileRepository;
+import com.icastar.platform.repository.ArtistProfileArtistTypeRepository;
+import com.icastar.platform.repository.ArtistTypeRepository;
 import com.icastar.platform.repository.DocumentRepository;
 import com.icastar.platform.repository.UserRepository;
 import com.icastar.platform.config.CacheNames;
@@ -19,8 +24,11 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -31,6 +39,8 @@ public class ArtistProfileService {
     private final ArtistProfileRepository artistProfileRepository;
     private final UserRepository userRepository;
     private final DocumentRepository documentRepository;
+    private final ArtistProfileArtistTypeRepository artistProfileArtistTypeRepository;
+    private final ArtistTypeRepository artistTypeRepository;
 
     /**
      * Get complete artist profile by user ID
@@ -266,6 +276,16 @@ public class ArtistProfileService {
                 log.info("Onboarding automatically completed for user ID: {}", userId);
             }
 
+            // Handle multiple artist types update
+            if (updateDto.getArtistTypeIds() != null && !updateDto.getArtistTypeIds().isEmpty()) {
+                updateArtistTypes(artistProfile, updateDto.getArtistTypeIds());
+            } else if (updateDto.getArtistTypeId() != null) {
+                // Backward compatibility: if only single artistTypeId is provided
+                List<Long> singleTypeList = new ArrayList<>();
+                singleTypeList.add(updateDto.getArtistTypeId());
+                updateArtistTypes(artistProfile, singleTypeList);
+            }
+
             // Save updates
             userRepository.save(user);
             artistProfileRepository.save(artistProfile);
@@ -425,8 +445,45 @@ public class ArtistProfileService {
         
         // Artist Profile fields
         dto.setArtistProfileId(artistProfile.getId());
+
+        // Set primary artist type (backward compatibility)
         dto.setArtistTypeId(artistProfile.getArtistType().getId());
         dto.setArtistTypeName(artistProfile.getArtistType().getName());
+        dto.setArtistTypeDisplayName(artistProfile.getArtistType().getDisplayName());
+
+        // Get all artist types from the join table
+        List<ArtistProfileArtistType> allArtistTypes = artistProfileArtistTypeRepository
+                .findByArtistProfileIdOrderBySortOrder(artistProfile.getId());
+
+        if (allArtistTypes != null && !allArtistTypes.isEmpty()) {
+            // Map to ArtistTypeDto list
+            List<ArtistTypeDto> artistTypeDtos = allArtistTypes.stream()
+                    .map(apat -> new ArtistTypeDto(
+                            apat.getArtistType().getId(),
+                            apat.getArtistType().getName(),
+                            apat.getArtistType().getDisplayName()))
+                    .collect(Collectors.toList());
+            dto.setArtistTypes(artistTypeDtos);
+
+            // Also set the list of IDs for convenience
+            List<Long> artistTypeIds = allArtistTypes.stream()
+                    .map(apat -> apat.getArtistType().getId())
+                    .collect(Collectors.toList());
+            dto.setArtistTypeIds(artistTypeIds);
+        } else {
+            // Fallback: if no entries in join table, use the primary artist type
+            List<ArtistTypeDto> artistTypeDtos = new ArrayList<>();
+            artistTypeDtos.add(new ArtistTypeDto(
+                    artistProfile.getArtistType().getId(),
+                    artistProfile.getArtistType().getName(),
+                    artistProfile.getArtistType().getDisplayName()));
+            dto.setArtistTypes(artistTypeDtos);
+
+            List<Long> artistTypeIds = new ArrayList<>();
+            artistTypeIds.add(artistProfile.getArtistType().getId());
+            dto.setArtistTypeIds(artistTypeIds);
+        }
+
         dto.setStageName(artistProfile.getStageName());
         dto.setBio(artistProfile.getBio());
         dto.setDateOfBirth(artistProfile.getDateOfBirth());
@@ -489,5 +546,62 @@ public class ArtistProfileService {
         dto.setVerifiedBy(document.getVerifiedBy());
         dto.setVerificationNotes(document.getVerificationNotes());
         return dto;
+    }
+
+    /**
+     * Update artist types for a profile
+     * First ID in the list is the primary type
+     * Removes duplicates and validates all IDs
+     * Maximum 5 artist types allowed
+     */
+    private void updateArtistTypes(ArtistProfile artistProfile, List<Long> artistTypeIds) {
+        // Remove duplicates while preserving order
+        Set<Long> uniqueIds = new LinkedHashSet<>(artistTypeIds);
+        List<Long> uniqueIdList = new ArrayList<>(uniqueIds);
+
+        // Limit to max 5 artist types
+        if (uniqueIdList.size() > 5) {
+            uniqueIdList = uniqueIdList.subList(0, 5);
+            log.warn("Artist types list truncated to 5 for profile ID: {}", artistProfile.getId());
+        }
+
+        // Validate at least one artist type
+        if (uniqueIdList.isEmpty()) {
+            throw new RuntimeException("At least one artist type is required");
+        }
+
+        // Fetch and validate all artist types
+        List<ArtistType> validArtistTypes = new ArrayList<>();
+        for (Long typeId : uniqueIdList) {
+            ArtistType artistType = artistTypeRepository.findById(typeId)
+                    .orElseThrow(() -> new RuntimeException("Invalid artist type ID: " + typeId));
+            if (!artistType.getIsActive()) {
+                throw new RuntimeException("Artist type is not active: " + typeId);
+            }
+            validArtistTypes.add(artistType);
+        }
+
+        // First type is primary - update the main artist_type_id field
+        ArtistType primaryType = validArtistTypes.get(0);
+        artistProfile.setArtistType(primaryType);
+        artistProfileRepository.save(artistProfile);
+
+        // Delete existing entries in join table
+        artistProfileArtistTypeRepository.deleteAllByArtistProfileId(artistProfile.getId());
+
+        // Create new entries in join table
+        List<ArtistProfileArtistType> newEntries = new ArrayList<>();
+        for (int i = 0; i < validArtistTypes.size(); i++) {
+            ArtistProfileArtistType entry = new ArtistProfileArtistType(
+                    artistProfile,
+                    validArtistTypes.get(i),
+                    i == 0, // first one is primary
+                    i       // sort order
+            );
+            newEntries.add(entry);
+        }
+        artistProfileArtistTypeRepository.saveAll(newEntries);
+
+        log.info("Updated {} artist types for profile ID: {}", validArtistTypes.size(), artistProfile.getId());
     }
 }

@@ -12,9 +12,14 @@ import java.util.List;
 
 @Data
 public class CreateArtistProfileDto {
-    
-    @NotNull(message = "Artist type ID is required")
+
+    // Primary artist type ID (backward compatibility)
+    // If artistTypeIds is provided, this will be set to the first element
     private Long artistTypeId;
+
+    // List of artist type IDs - first one is primary
+    // At least one artist type is required
+    private List<Long> artistTypeIds;
     
     @NotBlank(message = "First name is required")
     @Size(min = 2, max = 50, message = "First name must be between 2 and 50 characters")

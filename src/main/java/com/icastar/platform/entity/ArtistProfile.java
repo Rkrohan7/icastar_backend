@@ -27,8 +27,8 @@ import lombok.ToString;
 @Entity
 @Table(name = "artist_profiles")
 @Data
-@EqualsAndHashCode(callSuper = true, exclude = {"jobApplications", "bookmarkedJobs", "dynamicFields"})
-@ToString(exclude = {"jobApplications", "bookmarkedJobs", "dynamicFields"})
+@EqualsAndHashCode(callSuper = true, exclude = {"jobApplications", "bookmarkedJobs", "dynamicFields", "artistTypes"})
+@ToString(exclude = {"jobApplications", "bookmarkedJobs", "dynamicFields", "artistTypes"})
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class ArtistProfile extends BaseEntity {
 
@@ -189,6 +189,13 @@ public class ArtistProfile extends BaseEntity {
     @OneToMany(mappedBy = "artistProfile", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @JsonIgnore
     private List<ArtistProfileField> dynamicFields;
+
+    // Multiple artist types (professions) for this artist
+    // The primary artist type is stored in artistType field for backward compatibility
+    // This list contains all artist types including the primary one
+    @OneToMany(mappedBy = "artistProfile", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
+    @JsonIgnore
+    private List<ArtistProfileArtistType> artistTypes;
 
     // Documents are linked through User entity, not directly to ArtistProfile
     // @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)

@@ -26,8 +26,19 @@ public class ArtistProfileCompleteDto {
     
     // Artist Profile fields
     private Long artistProfileId;
+
+    // Primary artist type (backward compatibility)
     private Long artistTypeId;
     private String artistTypeName;
+    private String artistTypeDisplayName;
+
+    // All artist types for this profile (new field for multiple professions)
+    // First element is always the primary type
+    private List<ArtistTypeDto> artistTypes;
+
+    // List of artist type IDs for update operations
+    private List<Long> artistTypeIds;
+
     private String stageName;
     private String bio;
     private LocalDate dateOfBirth;

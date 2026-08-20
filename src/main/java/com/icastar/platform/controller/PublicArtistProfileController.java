@@ -2,7 +2,9 @@ package com.icastar.platform.controller;
 
 import com.icastar.platform.dto.ArtistProfileFieldDto;
 import com.icastar.platform.entity.ArtistProfile;
+import com.icastar.platform.entity.ArtistProfileArtistType;
 import com.icastar.platform.entity.User;
+import com.icastar.platform.repository.ArtistProfileArtistTypeRepository;
 import com.icastar.platform.service.ArtistService;
 import com.icastar.platform.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -12,6 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -25,6 +28,7 @@ public class PublicArtistProfileController {
 
     private final ArtistService artistService;
     private final UserService userService;
+    private final ArtistProfileArtistTypeRepository artistProfileArtistTypeRepository;
 
     /**
      * Get public artist profile by user ID
@@ -98,7 +102,7 @@ public class PublicArtistProfileController {
             profileData.put("totalApplications", artistProfile.getTotalApplications());
             profileData.put("successfulHires", artistProfile.getSuccessfulHires());
 
-            // Artist type (role) info
+            // Primary artist type (backward compatibility)
             if (artistProfile.getArtistType() != null) {
                 Map<String, Object> artistTypeData = new HashMap<>();
                 artistTypeData.put("id", artistProfile.getArtistType().getId());
@@ -106,6 +110,31 @@ public class PublicArtistProfileController {
                 artistTypeData.put("displayName", artistProfile.getArtistType().getDisplayName());
                 artistTypeData.put("description", artistProfile.getArtistType().getDescription());
                 profileData.put("artistType", artistTypeData);
+            }
+
+            // All artist types (new field for multiple professions)
+            List<ArtistProfileArtistType> allArtistTypes = artistProfileArtistTypeRepository
+                    .findByArtistProfileIdOrderBySortOrder(artistProfile.getId());
+
+            if (allArtistTypes != null && !allArtistTypes.isEmpty()) {
+                List<Map<String, Object>> artistTypesList = new ArrayList<>();
+                for (ArtistProfileArtistType apat : allArtistTypes) {
+                    Map<String, Object> typeData = new HashMap<>();
+                    typeData.put("id", apat.getArtistType().getId());
+                    typeData.put("name", apat.getArtistType().getName());
+                    typeData.put("displayName", apat.getArtistType().getDisplayName());
+                    artistTypesList.add(typeData);
+                }
+                profileData.put("artistTypes", artistTypesList);
+            } else if (artistProfile.getArtistType() != null) {
+                // Fallback: if no entries in join table, use the primary artist type
+                List<Map<String, Object>> artistTypesList = new ArrayList<>();
+                Map<String, Object> typeData = new HashMap<>();
+                typeData.put("id", artistProfile.getArtistType().getId());
+                typeData.put("name", artistProfile.getArtistType().getName());
+                typeData.put("displayName", artistProfile.getArtistType().getDisplayName());
+                artistTypesList.add(typeData);
+                profileData.put("artistTypes", artistTypesList);
             }
 
             Map<String, Object> response = new HashMap<>();

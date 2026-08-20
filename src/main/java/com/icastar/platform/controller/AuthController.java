@@ -2,12 +2,14 @@ package com.icastar.platform.controller;
 
 import com.icastar.platform.dto.auth.*;
 import com.icastar.platform.entity.ArtistProfile;
+import com.icastar.platform.entity.ArtistProfileArtistType;
 import com.icastar.platform.entity.ArtistType;
 import com.icastar.platform.entity.Otp;
 import com.icastar.platform.entity.PasswordResetToken;
 import com.icastar.platform.entity.RecruiterProfile;
 import com.icastar.platform.entity.User;
 import com.icastar.platform.repository.ArtistProfileRepository;
+import com.icastar.platform.repository.ArtistProfileArtistTypeRepository;
 import com.icastar.platform.repository.ArtistTypeRepository;
 import com.icastar.platform.repository.PasswordResetTokenRepository;
 import com.icastar.platform.repository.RecruiterProfileRepository;
@@ -36,7 +38,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -55,6 +59,7 @@ public class AuthController {
     private final UserRepository userRepository;
     private final RecruiterProfileRepository recruiterProfileRepository;
     private final ArtistProfileRepository artistProfileRepository;
+    private final ArtistProfileArtistTypeRepository artistProfileArtistTypeRepository;
     private final ArtistTypeRepository artistTypeRepository;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
 
@@ -173,12 +178,38 @@ public class AuthController {
                     profileData.put("isVerified", artistProfile.getIsVerifiedBadge());
                     profileData.put("isProfileComplete", artistProfile.getIsProfileComplete());
 
+                    // Primary artist type (backward compatibility)
                     if (artistProfile.getArtistType() != null) {
                         Map<String, Object> artistTypeData = new HashMap<>();
                         artistTypeData.put("id", artistProfile.getArtistType().getId());
                         artistTypeData.put("name", artistProfile.getArtistType().getName());
                         artistTypeData.put("displayName", artistProfile.getArtistType().getDisplayName());
                         profileData.put("artistType", artistTypeData);
+                    }
+
+                    // All artist types (new field for multiple professions)
+                    List<ArtistProfileArtistType> allArtistTypes = artistProfileArtistTypeRepository
+                            .findByArtistProfileIdOrderBySortOrder(artistProfile.getId());
+
+                    if (allArtistTypes != null && !allArtistTypes.isEmpty()) {
+                        List<Map<String, Object>> artistTypesList = new ArrayList<>();
+                        for (ArtistProfileArtistType apat : allArtistTypes) {
+                            Map<String, Object> typeData = new HashMap<>();
+                            typeData.put("id", apat.getArtistType().getId());
+                            typeData.put("name", apat.getArtistType().getName());
+                            typeData.put("displayName", apat.getArtistType().getDisplayName());
+                            artistTypesList.add(typeData);
+                        }
+                        profileData.put("artistTypes", artistTypesList);
+                    } else if (artistProfile.getArtistType() != null) {
+                        // Fallback: if no entries in join table, use the primary artist type
+                        List<Map<String, Object>> artistTypesList = new ArrayList<>();
+                        Map<String, Object> typeData = new HashMap<>();
+                        typeData.put("id", artistProfile.getArtistType().getId());
+                        typeData.put("name", artistProfile.getArtistType().getName());
+                        typeData.put("displayName", artistProfile.getArtistType().getDisplayName());
+                        artistTypesList.add(typeData);
+                        profileData.put("artistTypes", artistTypesList);
                     }
 
                     userData.put("artistProfile", profileData);
