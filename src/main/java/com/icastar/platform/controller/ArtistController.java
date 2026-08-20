@@ -4,11 +4,15 @@ import com.icastar.platform.dto.ArtistProfileFieldDto;
 import com.icastar.platform.dto.artist.CreateArtistProfileDto;
 import com.icastar.platform.dto.artist.SimpleCreateArtistProfileDto;
 import com.icastar.platform.entity.ArtistProfile;
+import com.icastar.platform.entity.ArtistProfileArtistType;
 import com.icastar.platform.entity.ArtistType;
 import com.icastar.platform.entity.User;
 
+import java.util.ArrayList;
 import java.util.Optional;
+import com.icastar.platform.repository.ArtistProfileArtistTypeRepository;
 import com.icastar.platform.service.ArtistService;
+import com.icastar.platform.service.ArtistProfileService;
 import com.icastar.platform.service.ArtistTypeService;
 import com.icastar.platform.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -51,9 +55,11 @@ import org.springframework.beans.factory.annotation.Value;
 public class ArtistController {
 
     private final ArtistService artistService;
+    private final ArtistProfileService artistProfileService;
     private final ArtistTypeService artistTypeService;
     private final UserService userService;
     private final ObjectMapper objectMapper;
+    private final ArtistProfileArtistTypeRepository artistProfileArtistTypeRepository;
 
     @Value("${icastar.file.upload-dir:uploads/}")
     private String uploadDir;
@@ -130,6 +136,14 @@ public class ArtistController {
             }
 
             artistService.save(artistProfile);
+
+            // Save multiple artist types to join table
+            if (createDto.getArtistTypeIds() != null && !createDto.getArtistTypeIds().isEmpty()) {
+                artistProfileService.updateArtistTypes(artistProfile, createDto.getArtistTypeIds());
+            } else if (createDto.getArtistTypeId() != null) {
+                // Backward compatibility: save single artistTypeId to join table
+                artistProfileService.updateArtistTypes(artistProfile, List.of(createDto.getArtistTypeId()));
+            }
 
             // Get dynamic fields for the response
             List<ArtistProfileFieldDto> dynamicFields = artistService.getDynamicFields(artistProfile.getId());
@@ -289,7 +303,7 @@ public class ArtistController {
             profileData.put("isVerified", artistProfile.getIsVerifiedBadge());
             profileData.put("isProfileComplete", artistProfile.getIsProfileComplete());
 
-            // Artist type (role) info
+            // Artist type (role) info - primary type
             if (artistProfile.getArtistType() != null) {
                 Map<String, Object> artistTypeData = new HashMap<>();
                 artistTypeData.put("id", artistProfile.getArtistType().getId());
@@ -297,6 +311,31 @@ public class ArtistController {
                 artistTypeData.put("displayName", artistProfile.getArtistType().getDisplayName());
                 artistTypeData.put("description", artistProfile.getArtistType().getDescription());
                 profileData.put("artistType", artistTypeData);
+            }
+
+            // All artist types (multiple professions)
+            List<ArtistProfileArtistType> allArtistTypes = artistProfileArtistTypeRepository
+                    .findByArtistProfileIdOrderBySortOrder(artistProfile.getId());
+
+            if (allArtistTypes != null && !allArtistTypes.isEmpty()) {
+                List<Map<String, Object>> artistTypesList = new ArrayList<>();
+                for (ArtistProfileArtistType apat : allArtistTypes) {
+                    Map<String, Object> typeData = new HashMap<>();
+                    typeData.put("id", apat.getArtistType().getId());
+                    typeData.put("name", apat.getArtistType().getName());
+                    typeData.put("displayName", apat.getArtistType().getDisplayName());
+                    artistTypesList.add(typeData);
+                }
+                profileData.put("artistTypes", artistTypesList);
+            } else if (artistProfile.getArtistType() != null) {
+                // Fallback: if no entries in join table, use the primary artist type
+                List<Map<String, Object>> artistTypesList = new ArrayList<>();
+                Map<String, Object> typeData = new HashMap<>();
+                typeData.put("id", artistProfile.getArtistType().getId());
+                typeData.put("name", artistProfile.getArtistType().getName());
+                typeData.put("displayName", artistProfile.getArtistType().getDisplayName());
+                artistTypesList.add(typeData);
+                profileData.put("artistTypes", artistTypesList);
             }
 
             Map<String, Object> response = new HashMap<>();

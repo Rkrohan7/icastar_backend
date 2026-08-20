@@ -5,12 +5,16 @@ import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 import java.time.LocalDate;
+import java.util.List;
 
 @Data
 public class SimpleCreateArtistProfileDto {
 
-    @NotNull(message = "Artist type ID is required")
+    // Single artistTypeId for backward compatibility
     private Long artistTypeId;
+
+    // Multiple artist types - first one is primary
+    private List<Long> artistTypeIds;
 
     private LocalDate dateOfBirth;
 

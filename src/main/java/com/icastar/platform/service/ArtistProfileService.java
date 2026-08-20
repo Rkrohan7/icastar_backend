@@ -554,7 +554,7 @@ public class ArtistProfileService {
      * Removes duplicates and validates all IDs
      * Maximum 5 artist types allowed
      */
-    private void updateArtistTypes(ArtistProfile artistProfile, List<Long> artistTypeIds) {
+    public void updateArtistTypes(ArtistProfile artistProfile, List<Long> artistTypeIds) {
         // Remove duplicates while preserving order
         Set<Long> uniqueIds = new LinkedHashSet<>(artistTypeIds);
         List<Long> uniqueIdList = new ArrayList<>(uniqueIds);
