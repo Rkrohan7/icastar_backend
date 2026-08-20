@@ -29,7 +29,7 @@ public class ArtistProfileArtistType {
     @JsonIgnore
     private ArtistProfile artistProfile;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "artist_type_id", nullable = false)
     private ArtistType artistType;
 

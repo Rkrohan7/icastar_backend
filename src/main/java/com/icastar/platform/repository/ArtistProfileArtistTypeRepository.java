@@ -22,7 +22,7 @@ public interface ArtistProfileArtistTypeRepository extends JpaRepository<ArtistP
     @Query("SELECT apat FROM ArtistProfileArtistType apat WHERE apat.artistProfile.id = :artistProfileId ORDER BY apat.sortOrder")
     List<ArtistProfileArtistType> findAllByArtistProfileId(@Param("artistProfileId") Long artistProfileId);
 
-    @Modifying
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("DELETE FROM ArtistProfileArtistType apat WHERE apat.artistProfile.id = :artistProfileId")
     void deleteAllByArtistProfileId(@Param("artistProfileId") Long artistProfileId);
 

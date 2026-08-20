@@ -589,7 +589,10 @@ public class ArtistProfileService {
         // Delete existing entries in join table
         artistProfileArtistTypeRepository.deleteAllByArtistProfileId(artistProfile.getId());
 
-        // Create new entries in join table
+        // Flush to ensure delete is committed before insert
+        artistProfileArtistTypeRepository.flush();
+
+        // Create new entries in join table for ALL artist types
         List<ArtistProfileArtistType> newEntries = new ArrayList<>();
         for (int i = 0; i < validArtistTypes.size(); i++) {
             ArtistProfileArtistType entry = new ArtistProfileArtistType(
@@ -599,9 +602,12 @@ public class ArtistProfileService {
                     i       // sort order
             );
             newEntries.add(entry);
+            log.debug("Adding artist type {} with sortOrder {} for profile ID: {}",
+                    validArtistTypes.get(i).getName(), i, artistProfile.getId());
         }
         artistProfileArtistTypeRepository.saveAll(newEntries);
+        artistProfileArtistTypeRepository.flush();
 
-        log.info("Updated {} artist types for profile ID: {}", validArtistTypes.size(), artistProfile.getId());
+        log.info("Saved {} artist types to join table for profile ID: {}", newEntries.size(), artistProfile.getId());
     }
 }
