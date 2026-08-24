@@ -3,6 +3,7 @@ package com.icastar.platform.service;
 import com.icastar.platform.dto.artist.ArtistProfileCompleteDto;
 import com.icastar.platform.dto.artist.ArtistProfileCompleteDto.DocumentDto;
 import com.icastar.platform.dto.artist.ArtistTypeDto;
+import com.icastar.platform.dto.artist.ProfessionDto;
 import com.icastar.platform.entity.ArtistProfile;
 import com.icastar.platform.entity.ArtistProfileArtistType;
 import com.icastar.platform.entity.ArtistType;
@@ -456,12 +457,13 @@ public class ArtistProfileService {
                 .findByArtistProfileIdOrderBySortOrder(artistProfile.getId());
 
         if (allArtistTypes != null && !allArtistTypes.isEmpty()) {
-            // Map to ArtistTypeDto list
+            // Map to ArtistTypeDto list with experience years
             List<ArtistTypeDto> artistTypeDtos = allArtistTypes.stream()
                     .map(apat -> new ArtistTypeDto(
                             apat.getArtistType().getId(),
                             apat.getArtistType().getName(),
-                            apat.getArtistType().getDisplayName()))
+                            apat.getArtistType().getDisplayName(),
+                            apat.getExperienceYears()))
                     .collect(Collectors.toList());
             dto.setArtistTypes(artistTypeDtos);
 
@@ -476,7 +478,8 @@ public class ArtistProfileService {
             artistTypeDtos.add(new ArtistTypeDto(
                     artistProfile.getArtistType().getId(),
                     artistProfile.getArtistType().getName(),
-                    artistProfile.getArtistType().getDisplayName()));
+                    artistProfile.getArtistType().getDisplayName(),
+                    0));
             dto.setArtistTypes(artistTypeDtos);
 
             List<Long> artistTypeIds = new ArrayList<>();
@@ -609,5 +612,79 @@ public class ArtistProfileService {
         artistProfileArtistTypeRepository.flush();
 
         log.info("Saved {} artist types to join table for profile ID: {}", newEntries.size(), artistProfile.getId());
+    }
+
+    /**
+     * Update artist types with experience years for a profile
+     * First in the list is the primary type
+     * Removes duplicates and validates all IDs
+     * Maximum 5 artist types allowed
+     */
+    public void updateArtistTypesWithExperience(ArtistProfile artistProfile, List<ProfessionDto> professions) {
+        if (professions == null || professions.isEmpty()) {
+            throw new RuntimeException("At least one profession is required");
+        }
+
+        // Remove duplicates by artistTypeId while preserving order
+        Set<Long> seenIds = new LinkedHashSet<>();
+        List<ProfessionDto> uniqueProfessions = new ArrayList<>();
+        for (ProfessionDto p : professions) {
+            if (p.getArtistTypeId() != null && seenIds.add(p.getArtistTypeId())) {
+                uniqueProfessions.add(p);
+            }
+        }
+
+        // Limit to max 5 artist types
+        if (uniqueProfessions.size() > 5) {
+            uniqueProfessions = uniqueProfessions.subList(0, 5);
+            log.warn("Professions list truncated to 5 for profile ID: {}", artistProfile.getId());
+        }
+
+        // Validate at least one profession
+        if (uniqueProfessions.isEmpty()) {
+            throw new RuntimeException("At least one valid profession is required");
+        }
+
+        // Fetch and validate all artist types
+        List<ArtistType> validArtistTypes = new ArrayList<>();
+        for (ProfessionDto profession : uniqueProfessions) {
+            ArtistType artistType = artistTypeRepository.findById(profession.getArtistTypeId())
+                    .orElseThrow(() -> new RuntimeException("Invalid artist type ID: " + profession.getArtistTypeId()));
+            if (!artistType.getIsActive()) {
+                throw new RuntimeException("Artist type is not active: " + profession.getArtistTypeId());
+            }
+            validArtistTypes.add(artistType);
+        }
+
+        // First type is primary - update the main artist_type_id field
+        ArtistType primaryType = validArtistTypes.get(0);
+        artistProfile.setArtistType(primaryType);
+        artistProfileRepository.save(artistProfile);
+
+        // Delete existing entries in join table
+        artistProfileArtistTypeRepository.deleteAllByArtistProfileId(artistProfile.getId());
+
+        // Flush to ensure delete is committed before insert
+        artistProfileArtistTypeRepository.flush();
+
+        // Create new entries in join table for ALL artist types with experience
+        List<ArtistProfileArtistType> newEntries = new ArrayList<>();
+        for (int i = 0; i < validArtistTypes.size(); i++) {
+            ProfessionDto profession = uniqueProfessions.get(i);
+            ArtistProfileArtistType entry = new ArtistProfileArtistType(
+                    artistProfile,
+                    validArtistTypes.get(i),
+                    i == 0, // first one is primary
+                    i,      // sort order
+                    profession.getExperienceYears()
+            );
+            newEntries.add(entry);
+            log.debug("Adding artist type {} with sortOrder {} and experienceYears {} for profile ID: {}",
+                    validArtistTypes.get(i).getName(), i, profession.getExperienceYears(), artistProfile.getId());
+        }
+        artistProfileArtistTypeRepository.saveAll(newEntries);
+        artistProfileArtistTypeRepository.flush();
+
+        log.info("Saved {} artist types with experience to join table for profile ID: {}", newEntries.size(), artistProfile.getId());
     }
 }

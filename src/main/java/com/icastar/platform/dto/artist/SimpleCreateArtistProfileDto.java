@@ -16,6 +16,9 @@ public class SimpleCreateArtistProfileDto {
     // Multiple artist types - first one is primary
     private List<Long> artistTypeIds;
 
+    // Professions with experience years for each artist type
+    private List<ProfessionDto> professions;
+
     private LocalDate dateOfBirth;
 
     private ArtistProfile.Gender gender;

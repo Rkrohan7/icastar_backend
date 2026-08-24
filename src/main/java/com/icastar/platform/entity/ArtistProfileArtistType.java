@@ -39,6 +39,9 @@ public class ArtistProfileArtistType {
     @Column(name = "sort_order", nullable = false)
     private Integer sortOrder = 0;
 
+    @Column(name = "experience_years")
+    private Integer experienceYears = 0;
+
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -48,5 +51,13 @@ public class ArtistProfileArtistType {
         this.artistType = artistType;
         this.isPrimary = isPrimary;
         this.sortOrder = sortOrder;
+    }
+
+    public ArtistProfileArtistType(ArtistProfile artistProfile, ArtistType artistType, Boolean isPrimary, Integer sortOrder, Integer experienceYears) {
+        this.artistProfile = artistProfile;
+        this.artistType = artistType;
+        this.isPrimary = isPrimary;
+        this.sortOrder = sortOrder;
+        this.experienceYears = experienceYears != null ? experienceYears : 0;
     }
 }

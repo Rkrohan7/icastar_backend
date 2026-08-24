@@ -138,7 +138,10 @@ public class ArtistController {
             artistService.save(artistProfile);
 
             // Save multiple artist types to join table
-            if (createDto.getArtistTypeIds() != null && !createDto.getArtistTypeIds().isEmpty()) {
+            if (createDto.getProfessions() != null && !createDto.getProfessions().isEmpty()) {
+                // Use professions list with experience years
+                artistProfileService.updateArtistTypesWithExperience(artistProfile, createDto.getProfessions());
+            } else if (createDto.getArtistTypeIds() != null && !createDto.getArtistTypeIds().isEmpty()) {
                 artistProfileService.updateArtistTypes(artistProfile, createDto.getArtistTypeIds());
             } else if (createDto.getArtistTypeId() != null) {
                 // Backward compatibility: save single artistTypeId to join table
@@ -313,7 +316,7 @@ public class ArtistController {
                 profileData.put("artistType", artistTypeData);
             }
 
-            // All artist types (multiple professions)
+            // All artist types (multiple professions) with experience years
             List<ArtistProfileArtistType> allArtistTypes = artistProfileArtistTypeRepository
                     .findByArtistProfileIdOrderBySortOrder(artistProfile.getId());
 
@@ -324,6 +327,7 @@ public class ArtistController {
                     typeData.put("id", apat.getArtistType().getId());
                     typeData.put("name", apat.getArtistType().getName());
                     typeData.put("displayName", apat.getArtistType().getDisplayName());
+                    typeData.put("experienceYears", apat.getExperienceYears());
                     artistTypesList.add(typeData);
                 }
                 profileData.put("artistTypes", artistTypesList);
@@ -334,6 +338,7 @@ public class ArtistController {
                 typeData.put("id", artistProfile.getArtistType().getId());
                 typeData.put("name", artistProfile.getArtistType().getName());
                 typeData.put("displayName", artistProfile.getArtistType().getDisplayName());
+                typeData.put("experienceYears", 0);
                 artistTypesList.add(typeData);
                 profileData.put("artistTypes", artistTypesList);
             }
