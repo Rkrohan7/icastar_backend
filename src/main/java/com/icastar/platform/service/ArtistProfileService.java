@@ -567,7 +567,10 @@ public class ArtistProfileService {
      * First ID in the list is the primary type
      * Removes duplicates and validates all IDs
      * Maximum 5 artist types allowed
+     * Transactional: the @Modifying delete and flush() below need an active transaction
+     * (the onboarding controller calls this directly, outside any transaction).
      */
+    @Transactional
     public void updateArtistTypes(ArtistProfile artistProfile, List<Long> artistTypeIds) {
         // Remove duplicates while preserving order
         Set<Long> uniqueIds = new LinkedHashSet<>(artistTypeIds);
@@ -630,7 +633,10 @@ public class ArtistProfileService {
      * First in the list is the primary type
      * Removes duplicates and validates all IDs
      * Maximum 5 artist types allowed
+     * Transactional: the @Modifying delete and flush() below need an active transaction
+     * (the onboarding controller calls this directly, outside any transaction).
      */
+    @Transactional
     public void updateArtistTypesWithExperience(ArtistProfile artistProfile, List<ProfessionDto> professions) {
         if (professions == null || professions.isEmpty()) {
             throw new RuntimeException("At least one profession is required");

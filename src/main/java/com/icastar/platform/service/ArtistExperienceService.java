@@ -262,8 +262,13 @@ public class ArtistExperienceService {
         // Calculate total experience years (all experiences merged)
         int totalMonths = calculateTotalMonthsFromExperiences(allExperiences);
         int totalYears = totalMonths / 12;
+        // Update a managed copy instead of save(artistProfile): during onboarding the passed
+        // instance is detached (artist-type delete clears the context) and may have null
+        // collections — merging it would clear experiences/artistTypes via orphanRemoval.
+        ArtistProfile managedProfile = artistProfileRepository.findById(artistProfile.getId())
+                .orElseThrow(() -> new RuntimeException("Artist profile not found"));
+        managedProfile.setExperienceYears(totalYears);
         artistProfile.setExperienceYears(totalYears);
-        artistProfileRepository.save(artistProfile);
         log.info("Updated total experience years to {} for artist profile ID: {}", totalYears, artistProfile.getId());
 
         // Calculate per-profession experience years
