@@ -80,9 +80,12 @@ public class ArtistProfileCompleteDto {
     
     // Documents
     private List<DocumentDto> documents;
-    
+
     // Dynamic fields
     private List<ArtistProfileFieldDto> dynamicFields;
+
+    // Work experiences
+    private List<ExperienceDto> experiences;
     
     @Data
     public static class DocumentDto {

@@ -28,5 +28,8 @@ public class SimpleCreateArtistProfileDto {
     private Integer experienceYears;
 
     private Boolean isOnboardingComplete;
+
+    // Work experiences to save during onboarding
+    private List<ExperienceDto> experiences;
 }
 

@@ -2,6 +2,7 @@ package com.icastar.platform.controller;
 
 import com.icastar.platform.dto.ArtistProfileFieldDto;
 import com.icastar.platform.dto.artist.CreateArtistProfileDto;
+import com.icastar.platform.dto.artist.ExperienceDto;
 import com.icastar.platform.dto.artist.SimpleCreateArtistProfileDto;
 import com.icastar.platform.entity.ArtistProfile;
 import com.icastar.platform.entity.ArtistProfileArtistType;
@@ -11,6 +12,7 @@ import com.icastar.platform.entity.User;
 import java.util.ArrayList;
 import java.util.Optional;
 import com.icastar.platform.repository.ArtistProfileArtistTypeRepository;
+import com.icastar.platform.service.ArtistExperienceService;
 import com.icastar.platform.service.ArtistService;
 import com.icastar.platform.service.ArtistProfileService;
 import com.icastar.platform.service.ArtistTypeService;
@@ -60,6 +62,7 @@ public class ArtistController {
     private final UserService userService;
     private final ObjectMapper objectMapper;
     private final ArtistProfileArtistTypeRepository artistProfileArtistTypeRepository;
+    private final ArtistExperienceService artistExperienceService;
 
     @Value("${icastar.file.upload-dir:uploads/}")
     private String uploadDir;
@@ -146,6 +149,12 @@ public class ArtistController {
             } else if (createDto.getArtistTypeId() != null) {
                 // Backward compatibility: save single artistTypeId to join table
                 artistProfileService.updateArtistTypes(artistProfile, List.of(createDto.getArtistTypeId()));
+            }
+
+            // Save experiences during onboarding
+            List<ExperienceDto> savedExperiences = new ArrayList<>();
+            if (createDto.getExperiences() != null && !createDto.getExperiences().isEmpty()) {
+                savedExperiences = artistExperienceService.saveExperiencesForOnboarding(artistProfile, createDto.getExperiences());
             }
 
             // Get dynamic fields for the response
@@ -342,6 +351,10 @@ public class ArtistController {
                 artistTypesList.add(typeData);
                 profileData.put("artistTypes", artistTypesList);
             }
+
+            // Get experiences (sorted by startDate DESC)
+            List<ExperienceDto> experiences = artistExperienceService.getExperiencesByArtistProfileId(artistProfile.getId());
+            profileData.put("experiences", experiences);
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
@@ -616,6 +629,148 @@ public class ArtistController {
             return ResponseEntity.badRequest().body(response);
         }
     }
+
+    // ==================== EXPERIENCE CRUD ENDPOINTS ====================
+
+    /**
+     * Create a new experience entry
+     * POST /api/artists/profile/experiences
+     */
+    @PostMapping("/profile/experiences")
+    @Operation(summary = "Create Experience", description = "Add a new work experience entry for the logged-in artist")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Experience created successfully"),
+        @ApiResponse(responseCode = "400", description = "Invalid input"),
+        @ApiResponse(responseCode = "403", description = "Artist profile not found")
+    })
+    public ResponseEntity<Map<String, Object>> createExperience(@Valid @RequestBody ExperienceDto experienceDto) {
+        try {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            String email = authentication.getName();
+
+            User user = userService.findByEmail(email)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+
+            ArtistProfile artistProfile = artistService.findByUserId(user.getId())
+                    .orElseThrow(() -> new RuntimeException("Artist profile not found"));
+
+            ExperienceDto savedExperience = artistExperienceService.createExperience(artistProfile.getId(), experienceDto);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Experience created successfully");
+            response.put("data", savedExperience);
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Error creating experience", e);
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", "Failed to create experience");
+            response.put("error", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+
+    /**
+     * Update an existing experience entry
+     * PUT /api/artists/profile/experiences/{id}
+     */
+    @PutMapping("/profile/experiences/{id}")
+    @Operation(summary = "Update Experience", description = "Update an existing work experience entry")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Experience updated successfully"),
+        @ApiResponse(responseCode = "400", description = "Invalid input"),
+        @ApiResponse(responseCode = "403", description = "Experience does not belong to this artist"),
+        @ApiResponse(responseCode = "404", description = "Experience not found")
+    })
+    public ResponseEntity<Map<String, Object>> updateExperience(
+            @PathVariable Long id,
+            @Valid @RequestBody ExperienceDto experienceDto) {
+        try {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            String email = authentication.getName();
+
+            User user = userService.findByEmail(email)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+
+            ArtistProfile artistProfile = artistService.findByUserId(user.getId())
+                    .orElseThrow(() -> new RuntimeException("Artist profile not found"));
+
+            // Check ownership
+            if (!artistExperienceService.isExperienceOwnedByArtist(id, artistProfile.getId())) {
+                Map<String, Object> response = new HashMap<>();
+                response.put("success", false);
+                response.put("message", "Experience not found or does not belong to this artist");
+                return ResponseEntity.status(403).body(response);
+            }
+
+            ExperienceDto updatedExperience = artistExperienceService.updateExperience(artistProfile.getId(), id, experienceDto);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Experience updated successfully");
+            response.put("data", updatedExperience);
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Error updating experience", e);
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", "Failed to update experience");
+            response.put("error", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+
+    /**
+     * Delete an experience entry
+     * DELETE /api/artists/profile/experiences/{id}
+     */
+    @DeleteMapping("/profile/experiences/{id}")
+    @Operation(summary = "Delete Experience", description = "Delete a work experience entry")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Experience deleted successfully"),
+        @ApiResponse(responseCode = "403", description = "Experience does not belong to this artist"),
+        @ApiResponse(responseCode = "404", description = "Experience not found")
+    })
+    public ResponseEntity<Map<String, Object>> deleteExperience(@PathVariable Long id) {
+        try {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            String email = authentication.getName();
+
+            User user = userService.findByEmail(email)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+
+            ArtistProfile artistProfile = artistService.findByUserId(user.getId())
+                    .orElseThrow(() -> new RuntimeException("Artist profile not found"));
+
+            // Check ownership
+            if (!artistExperienceService.isExperienceOwnedByArtist(id, artistProfile.getId())) {
+                Map<String, Object> response = new HashMap<>();
+                response.put("success", false);
+                response.put("message", "Experience not found or does not belong to this artist");
+                return ResponseEntity.status(403).body(response);
+            }
+
+            artistExperienceService.deleteExperience(artistProfile.getId(), id);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Experience deleted successfully");
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Error deleting experience", e);
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", "Failed to delete experience");
+            response.put("error", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+
+    // ==================== FILE UPLOAD ENDPOINTS ====================
 
     @PostMapping("/profile/upload-portfolio-photo")
     @Operation(summary = "Upload Portfolio Photo", description = "Upload artist's portfolio photo to S3")

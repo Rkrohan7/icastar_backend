@@ -3,12 +3,15 @@ package com.icastar.platform.service;
 import com.icastar.platform.dto.artist.ArtistProfileCompleteDto;
 import com.icastar.platform.dto.artist.ArtistProfileCompleteDto.DocumentDto;
 import com.icastar.platform.dto.artist.ArtistTypeDto;
+import com.icastar.platform.dto.artist.ExperienceDto;
 import com.icastar.platform.dto.artist.ProfessionDto;
+import com.icastar.platform.entity.ArtistExperience;
 import com.icastar.platform.entity.ArtistProfile;
 import com.icastar.platform.entity.ArtistProfileArtistType;
 import com.icastar.platform.entity.ArtistType;
 import com.icastar.platform.entity.Document;
 import com.icastar.platform.entity.User;
+import com.icastar.platform.repository.ArtistExperienceRepository;
 import com.icastar.platform.repository.ArtistProfileRepository;
 import com.icastar.platform.repository.ArtistProfileArtistTypeRepository;
 import com.icastar.platform.repository.ArtistTypeRepository;
@@ -42,6 +45,7 @@ public class ArtistProfileService {
     private final DocumentRepository documentRepository;
     private final ArtistProfileArtistTypeRepository artistProfileArtistTypeRepository;
     private final ArtistTypeRepository artistTypeRepository;
+    private final ArtistExperienceRepository artistExperienceRepository;
 
     /**
      * Get complete artist profile by user ID
@@ -528,7 +532,14 @@ public class ArtistProfileService {
         
         // Documents
         dto.setDocuments(documents.stream().map(this::mapToDocumentDto).collect(Collectors.toList()));
-        
+
+        // Experiences (sorted by startDate DESC)
+        List<ArtistExperience> experiences = artistExperienceRepository
+                .findByArtistProfileIdOrderByStartDateDesc(artistProfile.getId());
+        dto.setExperiences(experiences.stream()
+                .map(ExperienceDto::fromEntity)
+                .collect(Collectors.toList()));
+
         return dto;
     }
 
