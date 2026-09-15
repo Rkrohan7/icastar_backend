@@ -122,10 +122,16 @@ public class ArtistExperienceService {
 
     /**
      * Save multiple experiences during onboarding
+     * Deletes existing experiences first to avoid duplicates on re-submit
      */
     @Transactional
     public List<ExperienceDto> saveExperiencesForOnboarding(ArtistProfile artistProfile, List<ExperienceDto> experienceDtos) {
+        // Delete existing experiences first (handles re-submit case)
+        experienceRepository.deleteAllByArtistProfileId(artistProfile.getId());
+
+        // If empty list, just recalculate and return
         if (experienceDtos == null || experienceDtos.isEmpty()) {
+            recalculateExperienceYears(artistProfile);
             return new ArrayList<>();
         }
 
@@ -158,9 +164,12 @@ public class ArtistExperienceService {
         validateExperienceDtoBasic(dto);
 
         // Validate artistTypeId belongs to artist's professions
+        // Also accept primary artistType for old single-profession artists without join table entries
         if (dto.getArtistTypeId() != null) {
             boolean isValidProfession = artistProfileArtistTypeRepository
-                    .existsByArtistProfileIdAndArtistTypeId(artistProfile.getId(), dto.getArtistTypeId());
+                    .existsByArtistProfileIdAndArtistTypeId(artistProfile.getId(), dto.getArtistTypeId())
+                    || (artistProfile.getArtistType() != null
+                        && artistProfile.getArtistType().getId().equals(dto.getArtistTypeId()));
             if (!isValidProfession) {
                 throw new RuntimeException("Artist type ID " + dto.getArtistTypeId() + " is not one of the artist's selected professions");
             }
@@ -183,15 +192,23 @@ public class ArtistExperienceService {
         if (dto.getStartDate().isAfter(LocalDate.now())) {
             throw new RuntimeException("Start date cannot be in the future");
         }
-        if (Boolean.FALSE.equals(dto.getIsCurrent())) {
+
+        // Treat null isCurrent as false
+        boolean isCurrent = Boolean.TRUE.equals(dto.getIsCurrent());
+
+        if (!isCurrent) {
             if (dto.getEndDate() == null) {
                 throw new RuntimeException("End date is required when not currently working");
             }
             if (dto.getEndDate().isBefore(dto.getStartDate())) {
                 throw new RuntimeException("End date must be after or equal to start date");
             }
+            // End date should not be in the future
+            if (dto.getEndDate().isAfter(LocalDate.now())) {
+                throw new RuntimeException("End date cannot be in the future");
+            }
         }
-        if (Boolean.TRUE.equals(dto.getIsCurrent()) && dto.getEndDate() != null) {
+        if (isCurrent && dto.getEndDate() != null) {
             throw new RuntimeException("End date must be null when currently working");
         }
     }

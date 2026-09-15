@@ -55,7 +55,8 @@ public class ExperienceDto {
         dto.setId(entity.getId());
         if (entity.getArtistType() != null) {
             dto.setArtistTypeId(entity.getArtistType().getId());
-            dto.setArtistTypeName(entity.getArtistType().getName());
+            // Use displayName for better UI readability (e.g., "Dancer" instead of "DANCER")
+            dto.setArtistTypeName(entity.getArtistType().getDisplayName());
         }
         dto.setTitle(entity.getTitle());
         dto.setCompanyName(entity.getCompanyName());

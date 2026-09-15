@@ -151,9 +151,9 @@ public class ArtistController {
                 artistProfileService.updateArtistTypes(artistProfile, List.of(createDto.getArtistTypeId()));
             }
 
-            // Save experiences during onboarding
+            // Save experiences during onboarding (handles empty list to clear old entries on re-submit)
             List<ExperienceDto> savedExperiences = new ArrayList<>();
-            if (createDto.getExperiences() != null && !createDto.getExperiences().isEmpty()) {
+            if (createDto.getExperiences() != null) {
                 savedExperiences = artistExperienceService.saveExperiencesForOnboarding(artistProfile, createDto.getExperiences());
             }
 
