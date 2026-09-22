@@ -1,12 +1,18 @@
 package com.icastar.platform.dto.job;
 
+import com.icastar.platform.entity.CastingCharacter;
+import com.icastar.platform.entity.CastingProject;
 import com.icastar.platform.entity.Job;
+import com.icastar.platform.entity.JobApplication;
+import com.icastar.platform.dto.casting.SelectedArtistDto;
 import lombok.Data;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Data
 public class JobDto {
@@ -52,6 +58,17 @@ public class JobDto {
     private Boolean hasApplied;
     private Long applicationId;
     private JobApplicationDto applicationStatus;
+
+    // Casting project fields
+    private Long projectId;
+    private String projectName;
+    private CastingProject.ProjectType projectType;
+    private Long characterId;
+    private String characterName;
+    private CastingCharacter.RoleType roleType;
+
+    // Selected artists (hired applicants)
+    private List<SelectedArtistDto> selectedArtists;
 
     // Default constructor
     public JobDto() {}
@@ -130,5 +147,31 @@ public class JobDto {
         this.closedAt = job.getClosedAt();
         this.createdAt = job.getCreatedAt();
         this.updatedAt = job.getUpdatedAt();
+
+        // Casting project fields
+        if (job.getProject() != null) {
+            this.projectId = job.getProject().getId();
+            this.projectName = job.getProject().getName();
+            this.projectType = job.getProject().getProjectType();
+        }
+
+        // Casting character fields
+        if (job.getCharacter() != null) {
+            this.characterId = job.getCharacter().getId();
+            this.characterName = job.getCharacter().getName();
+        }
+
+        // Role type
+        this.roleType = job.getRoleType();
+
+        // Selected artists (hired applicants)
+        if (job.getApplications() != null) {
+            this.selectedArtists = job.getApplications().stream()
+                    .filter(app -> app.getStatus() == JobApplication.ApplicationStatus.HIRED)
+                    .map(SelectedArtistDto::new)
+                    .collect(Collectors.toList());
+        } else {
+            this.selectedArtists = new ArrayList<>();
+        }
     }
 }

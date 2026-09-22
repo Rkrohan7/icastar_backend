@@ -1,5 +1,6 @@
 package com.icastar.platform.dto.job;
 
+import com.icastar.platform.entity.CastingCharacter;
 import com.icastar.platform.entity.Job;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -11,7 +12,12 @@ import java.util.List;
 
 @Data
 public class CreateJobDto {
-    
+
+    // Casting project fields (optional)
+    private Long projectId;
+    private Long characterId;
+    private CastingCharacter.RoleType roleType;
+
     @NotBlank(message = "Title is required")
     private String title;
     

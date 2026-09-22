@@ -1,5 +1,6 @@
 package com.icastar.platform.dto.job;
 
+import com.icastar.platform.entity.CastingCharacter;
 import com.icastar.platform.entity.Job;
 import lombok.Data;
 
@@ -8,7 +9,12 @@ import java.time.LocalDate;
 
 @Data
 public class UpdateJobDto {
-    
+
+    // Casting project fields (optional)
+    private Long projectId;
+    private Long characterId;
+    private CastingCharacter.RoleType roleType;
+
     private String title;
     private String description;
     private String requirements;

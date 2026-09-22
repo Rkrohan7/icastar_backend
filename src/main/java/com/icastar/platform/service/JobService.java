@@ -51,6 +51,8 @@ public class JobService {
     private final JobRepository jobRepository;
     private final UserRepository userRepository;
     private final ObjectMapper objectMapper;
+    private final com.icastar.platform.repository.CastingProjectRepository castingProjectRepository;
+    private final com.icastar.platform.repository.CastingCharacterRepository castingCharacterRepository;
 
     @Transactional(readOnly = true)
     @Cacheable(value = CacheNames.JOBS_BY_ID, key = "#id")
@@ -242,6 +244,37 @@ public class JobService {
         job.setStatus(Job.JobStatus.ACTIVE);
         job.setPublishedAt(LocalDateTime.now());
 
+        // Handle project and character associations
+        if (createJobDto.getProjectId() != null) {
+            com.icastar.platform.entity.CastingProject project = castingProjectRepository.findById(createJobDto.getProjectId())
+                    .orElseThrow(() -> new RuntimeException("Project not found"));
+
+            // Validate project belongs to recruiter
+            if (!project.getRecruiter().getId().equals(recruiterId)) {
+                throw new RuntimeException("Project does not belong to this recruiter");
+            }
+
+            job.setProject(project);
+
+            // Handle character association
+            if (createJobDto.getCharacterId() != null) {
+                com.icastar.platform.entity.CastingCharacter character = castingCharacterRepository.findById(createJobDto.getCharacterId())
+                        .orElseThrow(() -> new RuntimeException("Character not found"));
+
+                // Validate character belongs to the project
+                if (!character.getProject().getId().equals(createJobDto.getProjectId())) {
+                    throw new RuntimeException("Character does not belong to the specified project");
+                }
+
+                job.setCharacter(character);
+            }
+        }
+
+        // Set role type
+        if (createJobDto.getRoleType() != null) {
+            job.setRoleType(createJobDto.getRoleType());
+        }
+
         return jobRepository.save(job);
     }
 
@@ -352,6 +385,39 @@ public class JobService {
         }
         if (updateJobDto.getSkillsRequired() != null && !updateJobDto.getSkillsRequired().equals(job.getSkillsRequired())) {
             job.setSkillsRequired(updateJobDto.getSkillsRequired());
+            isUpdated = true;
+        }
+
+        // Handle project and character associations
+        if (updateJobDto.getProjectId() != null) {
+            com.icastar.platform.entity.CastingProject project = castingProjectRepository.findById(updateJobDto.getProjectId())
+                    .orElseThrow(() -> new RuntimeException("Project not found"));
+
+            // Validate project belongs to recruiter
+            if (!project.getRecruiter().getId().equals(recruiterId)) {
+                throw new RuntimeException("Project does not belong to this recruiter");
+            }
+
+            job.setProject(project);
+            isUpdated = true;
+
+            // Handle character association
+            if (updateJobDto.getCharacterId() != null) {
+                com.icastar.platform.entity.CastingCharacter character = castingCharacterRepository.findById(updateJobDto.getCharacterId())
+                        .orElseThrow(() -> new RuntimeException("Character not found"));
+
+                // Validate character belongs to the project
+                if (!character.getProject().getId().equals(updateJobDto.getProjectId())) {
+                    throw new RuntimeException("Character does not belong to the specified project");
+                }
+
+                job.setCharacter(character);
+            }
+        }
+
+        // Set role type
+        if (updateJobDto.getRoleType() != null) {
+            job.setRoleType(updateJobDto.getRoleType());
             isUpdated = true;
         }
 
@@ -789,4 +855,24 @@ public class JobService {
         }
     }
 
+    // ============ PROJECT-RELATED METHODS ============
+
+    /**
+     * Find jobs by recruiter with optional project filter
+     */
+    @Transactional(readOnly = true)
+    public Page<Job> findByRecruiterWithProjectFilter(Long recruiterId, Long projectId, Pageable pageable) {
+        if (projectId != null) {
+            return jobRepository.findByRecruiterIdAndProjectId(recruiterId, projectId, pageable);
+        }
+        return findByRecruiter(recruiterId, pageable);
+    }
+
+    /**
+     * Find jobs by recruiter with project and character info
+     */
+    @Transactional(readOnly = true)
+    public Page<Job> findByRecruiterWithProjectAndCharacter(Long recruiterId, Pageable pageable) {
+        return jobRepository.findByRecruiterIdWithProjectAndCharacter(recruiterId, pageable);
+    }
 }

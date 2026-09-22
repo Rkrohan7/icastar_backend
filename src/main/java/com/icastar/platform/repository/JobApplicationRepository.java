@@ -191,4 +191,8 @@ public interface JobApplicationRepository extends JpaRepository<JobApplication, 
     // Check if guest has already applied for a job (by email or phone)
     @Query("SELECT ja FROM JobApplication ja WHERE ja.job.id = :jobId AND (ja.guestEmail = :email OR ja.guestPhone = :phone)")
     Optional<JobApplication> findByJobIdAndGuestEmailOrPhone(@Param("jobId") Long jobId, @Param("email") String email, @Param("phone") String phone);
+
+    // Find applications by job ID and status
+    @Query("SELECT ja FROM JobApplication ja WHERE ja.job.id = :jobId AND ja.status = :status")
+    List<JobApplication> findByJobIdAndStatus(@Param("jobId") Long jobId, @Param("status") JobApplication.ApplicationStatus status);
 }

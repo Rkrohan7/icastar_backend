@@ -175,4 +175,38 @@ public interface JobRepository extends JpaRepository<Job, Long> {
      */
     @Query("SELECT CASE WHEN COUNT(ja) > 0 THEN true ELSE false END FROM JobApplication ja WHERE ja.artist.id = :artistId AND ja.job.id = :jobId")
     boolean hasArtistAppliedToJob(@Param("artistId") Long artistId, @Param("jobId") Long jobId);
+
+    // Find jobs by project
+    @Query("SELECT j FROM Job j WHERE j.project.id = :projectId")
+    List<Job> findByProjectId(@Param("projectId") Long projectId);
+
+    @Query("SELECT j FROM Job j WHERE j.project.id = :projectId")
+    Page<Job> findByProjectId(@Param("projectId") Long projectId, Pageable pageable);
+
+    // Find jobs by recruiter and project
+    @Query("SELECT j FROM Job j WHERE j.recruiter.id = :recruiterId AND j.project.id = :projectId")
+    List<Job> findByRecruiterIdAndProjectId(@Param("recruiterId") Long recruiterId, @Param("projectId") Long projectId);
+
+    @Query("SELECT j FROM Job j WHERE j.recruiter.id = :recruiterId AND j.project.id = :projectId")
+    Page<Job> findByRecruiterIdAndProjectId(@Param("recruiterId") Long recruiterId, @Param("projectId") Long projectId, Pageable pageable);
+
+    // Find jobs by character
+    @Query("SELECT j FROM Job j WHERE j.character.id = :characterId")
+    List<Job> findByCharacterId(@Param("characterId") Long characterId);
+
+    // Count jobs by project
+    @Query("SELECT COUNT(j) FROM Job j WHERE j.project.id = :projectId")
+    Long countByProjectId(@Param("projectId") Long projectId);
+
+    // Count active jobs by project
+    @Query("SELECT COUNT(j) FROM Job j WHERE j.project.id = :projectId AND j.status = 'ACTIVE'")
+    Long countActiveByProjectId(@Param("projectId") Long projectId);
+
+    // Find jobs with project and character info for recruiter
+    @Query("SELECT j FROM Job j LEFT JOIN FETCH j.project LEFT JOIN FETCH j.character WHERE j.recruiter.id = :recruiterId")
+    List<Job> findByRecruiterIdWithProjectAndCharacter(@Param("recruiterId") Long recruiterId);
+
+    @Query(value = "SELECT j FROM Job j LEFT JOIN FETCH j.project LEFT JOIN FETCH j.character WHERE j.recruiter.id = :recruiterId",
+           countQuery = "SELECT COUNT(j) FROM Job j WHERE j.recruiter.id = :recruiterId")
+    Page<Job> findByRecruiterIdWithProjectAndCharacter(@Param("recruiterId") Long recruiterId, Pageable pageable);
 }

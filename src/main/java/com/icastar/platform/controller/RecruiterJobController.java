@@ -66,12 +66,13 @@ public class RecruiterJobController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(defaultValue = "createdAt") String sortBy,
-            @RequestParam(defaultValue = "desc") String sortDir) {
+            @RequestParam(defaultValue = "desc") String sortDir,
+            @RequestParam(required = false) Long projectId) {
 
         try {
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
             String email = authentication.getName();
-            
+
             User recruiter = userService.findByEmail(email)
                     .orElseThrow(() -> new RuntimeException("User not found"));
 
@@ -79,13 +80,13 @@ public class RecruiterJobController {
                 throw new RuntimeException("Only recruiters can view jobs");
             }
 
-            log.info("Fetching jobs for recruiter: {}", email);
+            log.info("Fetching jobs for recruiter: {} with projectId filter: {}", email, projectId);
 
-            Sort sort = sortDir.equalsIgnoreCase("desc") ? 
+            Sort sort = sortDir.equalsIgnoreCase("desc") ?
                     Sort.by(sortBy).descending() : Sort.by(sortBy).ascending();
-            
+
             Pageable pageable = PageRequest.of(page, size, sort);
-            Page<Job> jobs = jobService.findByRecruiter(recruiter.getId(), pageable);
+            Page<Job> jobs = jobService.findByRecruiterWithProjectFilter(recruiter.getId(), projectId, pageable);
             Page<JobDto> jobDtos = jobs.map(JobDto::new);
 
             return ResponseEntity.ok(jobDtos);

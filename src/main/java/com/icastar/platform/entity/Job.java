@@ -14,8 +14,8 @@ import java.util.List;
 @Entity
 @Table(name = "jobs")
 @Data
-@EqualsAndHashCode(callSuper = true, exclude = {"applications", "bookmarkedJobs"})
-@ToString(exclude = {"applications", "bookmarkedJobs"})
+@EqualsAndHashCode(callSuper = true, exclude = {"applications", "bookmarkedJobs", "project", "character"})
+@ToString(exclude = {"applications", "bookmarkedJobs", "project", "character"})
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class Job extends BaseEntity {
 
@@ -133,6 +133,21 @@ public class Job extends BaseEntity {
 
     @OneToMany(mappedBy = "job", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<BookmarkedJob> bookmarkedJobs;
+
+    // Casting project relationship (nullable for existing jobs)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "project_id")
+    private CastingProject project;
+
+    // Casting character relationship (nullable for existing jobs)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "character_id")
+    private CastingCharacter character;
+
+    // Role type for casting (nullable for existing jobs)
+    @Column(name = "role_type")
+    @Enumerated(EnumType.STRING)
+    private CastingCharacter.RoleType roleType;
 
     public enum JobType {
         FULL_TIME, PART_TIME, CONTRACT, FREELANCE, INTERNSHIP, PROJECT_BASED

@@ -52,6 +52,14 @@ public class PublicJobDto implements Serializable {
     private String companyLogoUrl;
     private String status;
 
+    // Casting project fields
+    private Long projectId;
+    private String projectName;
+    private String projectType;
+    private Long characterId;
+    private String characterName;
+    private String roleType;
+
     /**
      * Create PublicJobDto from Job entity.
      * This constructor extracts all required data from the entity and its relationships
@@ -91,6 +99,23 @@ public class PublicJobDto implements Serializable {
         if (job.getRecruiter() != null && job.getRecruiter().getRecruiterProfile() != null) {
             dto.setCompanyName(job.getRecruiter().getRecruiterProfile().getCompanyName());
             dto.setCompanyLogoUrl(job.getRecruiter().getRecruiterProfile().getCompanyLogoUrl());
+        }
+
+        // Extract project and character info
+        if (job.getProject() != null) {
+            dto.setProjectId(job.getProject().getId());
+            dto.setProjectName(job.getProject().getName());
+            dto.setProjectType(job.getProject().getProjectType() != null ?
+                    job.getProject().getProjectType().name() : null);
+        }
+
+        if (job.getCharacter() != null) {
+            dto.setCharacterId(job.getCharacter().getId());
+            dto.setCharacterName(job.getCharacter().getName());
+        }
+
+        if (job.getRoleType() != null) {
+            dto.setRoleType(job.getRoleType().name());
         }
 
         return dto;

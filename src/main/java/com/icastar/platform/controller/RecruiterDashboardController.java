@@ -30,9 +30,10 @@ import java.util.Map;
 @RequiredArgsConstructor
 @Slf4j
 public class RecruiterDashboardController {
-    
+
     private final RecruiterDashboardService recruiterDashboardService;
     private final UserService userService;
+    private final com.icastar.platform.service.CastingProjectService castingProjectService;
 
     /**
      * Get recruiter's profile
@@ -750,6 +751,50 @@ public class RecruiterDashboardController {
             Map<String, Object> response = new HashMap<>();
             response.put("success", false);
             response.put("message", "Failed to update profile: " + e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+
+    /**
+     * Get project-wise report with characters, jobs, and hired artists
+     * GET /recruiter/dashboard/project-report
+     *
+     * SECURITY: Returns data only for logged-in recruiter's projects
+     */
+    @GetMapping("/project-report")
+    public ResponseEntity<Map<String, Object>> getProjectReport(Authentication authentication) {
+        try {
+            if (authentication == null || authentication.getName() == null) {
+                Map<String, Object> response = new HashMap<>();
+                response.put("success", false);
+                response.put("message", "Authentication required");
+                return ResponseEntity.status(401).body(response);
+            }
+
+            String email = authentication.getName();
+            User user = userService.findByEmail(email)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+
+            if (user.getRole() != User.UserRole.RECRUITER) {
+                Map<String, Object> response = new HashMap<>();
+                response.put("success", false);
+                response.put("message", "Access forbidden: Recruiter role required");
+                return ResponseEntity.status(403).body(response);
+            }
+
+            log.info("Fetching project report for recruiter: {}", email);
+            List<com.icastar.platform.dto.casting.ProjectReportDto> reports = castingProjectService.getProjectReport(user.getId());
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("data", reports);
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Error fetching project report: {}", e.getMessage(), e);
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", "Failed to fetch project report: " + e.getMessage());
             return ResponseEntity.badRequest().body(response);
         }
     }
