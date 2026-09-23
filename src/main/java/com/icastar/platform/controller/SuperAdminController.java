@@ -39,6 +39,7 @@ public class SuperAdminController {
     private final SuperAdminService superAdminService;
     private final UserService userService;
     private final JobBulkUploadService jobBulkUploadService;
+    private final com.icastar.platform.service.SystemSettingService systemSettingService;
 
     // ==================== DASHBOARD APIs ====================
 
@@ -435,20 +436,30 @@ public class SuperAdminController {
     public ResponseEntity<Map<String, Object>> getSystemConfig() {
         log.info("Fetching system configuration");
 
-        // Return basic configuration (extend as needed)
+        // Get landing stats from database
+        Map<String, Integer> landingStats = systemSettingService.getLandingStatsForAdmin();
+
+        // Build config with values from database (with hardcoded defaults)
         SystemConfigDto config = SystemConfigDto.builder()
-                .platformName("iCastar")
-                .platformEmail("support@icastar.com")
-                .allowNewRegistrations(true)
-                .requireEmailVerification(true)
-                .requireMobileVerification(true)
-                .otpExpirationMinutes(10)
-                .otpLength(4)
-                .maxJobsPerRecruiter(100)
-                .jobExpirationDays(30)
-                .emailNotificationsEnabled(true)
-                .smsNotificationsEnabled(true)
-                .pushNotificationsEnabled(true)
+                // Landing stats from database
+                .landingStatsEnabled(systemSettingService.getBooleanValueOrDefault("landingStatsEnabled", true))
+                .landingActiveArtists(landingStats.get("landingActiveArtists"))
+                .landingCastingDirectors(landingStats.get("landingCastingDirectors"))
+                .landingSuccessfulAuditions(landingStats.get("landingSuccessfulAuditions"))
+                .landingSuccessRate(landingStats.get("landingSuccessRate"))
+                // Other settings (hardcoded defaults, can be extended to read from DB)
+                .platformName(systemSettingService.getValueOrDefault("platformName", "iCastar"))
+                .platformEmail(systemSettingService.getValueOrDefault("platformEmail", "support@icastar.com"))
+                .allowNewRegistrations(systemSettingService.getBooleanValueOrDefault("allowNewRegistrations", true))
+                .requireEmailVerification(systemSettingService.getBooleanValueOrDefault("requireEmailVerification", true))
+                .requireMobileVerification(systemSettingService.getBooleanValueOrDefault("requireMobileVerification", true))
+                .otpExpirationMinutes(systemSettingService.getIntValueOrDefault("otpExpirationMinutes", 10))
+                .otpLength(systemSettingService.getIntValueOrDefault("otpLength", 4))
+                .maxJobsPerRecruiter(systemSettingService.getIntValueOrDefault("maxJobsPerRecruiter", 100))
+                .jobExpirationDays(systemSettingService.getIntValueOrDefault("jobExpirationDays", 30))
+                .emailNotificationsEnabled(systemSettingService.getBooleanValueOrDefault("emailNotificationsEnabled", true))
+                .smsNotificationsEnabled(systemSettingService.getBooleanValueOrDefault("smsNotificationsEnabled", true))
+                .pushNotificationsEnabled(systemSettingService.getBooleanValueOrDefault("pushNotificationsEnabled", true))
                 .build();
 
         Map<String, Object> response = new HashMap<>();
@@ -461,16 +472,44 @@ public class SuperAdminController {
 
     @PutMapping("/config")
     @Operation(summary = "Update System Configuration", description = "Update system configuration settings")
-    public ResponseEntity<Map<String, Object>> updateSystemConfig(@RequestBody SystemConfigDto.UpdateConfigRequest request) {
-        log.info("Updating system configuration - key: {}", request.getKey());
+    public ResponseEntity<Map<String, Object>> updateSystemConfig(
+            @RequestBody SystemConfigDto.UpdateConfigRequest request,
+            Authentication authentication) {
+        log.info("Updating system configuration - key: {}, category: {}", request.getKey(), request.getCategory());
 
-        // TODO: Implement actual configuration update logic
+        try {
+            // Validate key is allowed
+            if (!systemSettingService.isKeyAllowed(request.getKey())) {
+                Map<String, Object> response = new HashMap<>();
+                response.put("success", false);
+                response.put("message", "Setting key '" + request.getKey() + "' is not allowed");
+                return ResponseEntity.badRequest().body(response);
+            }
 
-        Map<String, Object> response = new HashMap<>();
-        response.put("success", true);
-        response.put("message", "Configuration updated successfully");
+            // Get admin user ID for audit
+            User admin = userService.findByEmail(authentication.getName())
+                    .orElseThrow(() -> new RuntimeException("User not found"));
 
-        return ResponseEntity.ok(response);
+            // Upsert the setting
+            systemSettingService.upsertSetting(
+                    request.getKey(),
+                    request.getValue(),
+                    request.getCategory(),
+                    admin.getId()
+            );
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Configuration updated successfully");
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Error updating configuration", e);
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        }
     }
 
     // ==================== STATISTICS APIs ====================

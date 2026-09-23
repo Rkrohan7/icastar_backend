@@ -15,6 +15,13 @@ import java.util.Map;
 @AllArgsConstructor
 public class SystemConfigDto {
 
+    // Landing page counters
+    private Boolean landingStatsEnabled;
+    private Integer landingActiveArtists;
+    private Integer landingCastingDirectors;
+    private Integer landingSuccessfulAuditions;
+    private Integer landingSuccessRate;
+
     // General Settings
     private String platformName;
     private String platformEmail;
