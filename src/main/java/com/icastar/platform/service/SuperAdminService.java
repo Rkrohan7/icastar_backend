@@ -375,25 +375,27 @@ public class SuperAdminService {
     }
 
     /**
-     * Get all recruiters with detailed information
+     * Get all recruiters with detailed information (excludes soft-deleted)
      */
     @Transactional(readOnly = true)
     public Page<AllRecruitersResponseDto> getAllRecruiters(Pageable pageable, String search, String status, String category) {
         log.info("Fetching all recruiters - search: {}, status: {}, category: {}", search, status, category);
 
-        Page<RecruiterProfile> recruiters = recruiterProfileRepository.findAll(pageable);
+        // Use findAllExcludingDeleted to hide soft-deleted recruiters
+        Page<RecruiterProfile> recruiters = recruiterProfileRepository.findAllExcludingDeleted(pageable);
 
         return recruiters.map(this::mapToRecruiterDto);
     }
 
     /**
-     * Get all artists with detailed information
+     * Get all artists with detailed information (excludes soft-deleted)
      */
     @Transactional(readOnly = true)
     public Page<AllArtistsResponseDto> getAllArtists(Pageable pageable, String search, String status, String artistType) {
         log.info("Fetching all artists - search: {}, status: {}, artistType: {}", search, status, artistType);
 
-        Page<ArtistProfile> artists = artistProfileRepository.findAll(pageable);
+        // Use findAllExcludingDeleted to hide soft-deleted artists
+        Page<ArtistProfile> artists = artistProfileRepository.findAllExcludingDeleted(pageable);
 
         return artists.map(this::mapToArtistDto);
     }
@@ -1473,8 +1475,12 @@ public class SuperAdminService {
 
         // Suffix email/mobile to allow reuse (soft delete pattern)
         String timestamp = String.valueOf(System.currentTimeMillis());
-        user.setEmail(user.getEmail() + "_deleted_" + timestamp);
-        user.setMobile(user.getMobile() + "_deleted_" + timestamp);
+        if (user.getEmail() != null) {
+            user.setEmail(user.getEmail() + "_deleted_" + timestamp);
+        }
+        if (user.getMobile() != null) {
+            user.setMobile(user.getMobile() + "_deleted_" + timestamp);
+        }
 
         userRepository.save(user);
         log.info("Artist soft deleted successfully: profile id {}", profileId);
@@ -1587,8 +1593,12 @@ public class SuperAdminService {
 
         // Suffix email/mobile to allow reuse (soft delete pattern)
         String timestamp = String.valueOf(System.currentTimeMillis());
-        user.setEmail(user.getEmail() + "_deleted_" + timestamp);
-        user.setMobile(user.getMobile() + "_deleted_" + timestamp);
+        if (user.getEmail() != null) {
+            user.setEmail(user.getEmail() + "_deleted_" + timestamp);
+        }
+        if (user.getMobile() != null) {
+            user.setMobile(user.getMobile() + "_deleted_" + timestamp);
+        }
 
         userRepository.save(user);
         log.info("Recruiter soft deleted successfully: profile id {}", profileId);

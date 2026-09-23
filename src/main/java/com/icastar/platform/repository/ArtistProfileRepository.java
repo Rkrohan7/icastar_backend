@@ -78,4 +78,8 @@ public interface ArtistProfileRepository extends JpaRepository<ArtistProfile, Lo
     // Find artists with incomplete profiles (for reminder emails)
     @Query("SELECT ap FROM ArtistProfile ap WHERE ap.isProfileComplete = false AND ap.user.status = 'ACTIVE' AND ap.user.accountStatus = 'ACTIVE'")
     List<ArtistProfile> findIncompleteProfiles();
+
+    // Find all artists for admin (excludes soft-deleted users)
+    @Query("SELECT ap FROM ArtistProfile ap WHERE ap.user.deactivationReason IS NULL OR ap.user.deactivationReason NOT LIKE 'DELETED%'")
+    Page<ArtistProfile> findAllExcludingDeleted(Pageable pageable);
 }

@@ -44,4 +44,8 @@ public interface RecruiterProfileRepository extends JpaRepository<RecruiterProfi
 
     @Query("SELECT rp FROM RecruiterProfile rp WHERE rp.companyName LIKE %:searchTerm% OR rp.contactPersonName LIKE %:searchTerm%")
     List<RecruiterProfile> findByCompanyNameOrContactPersonContaining(@Param("searchTerm") String searchTerm);
+
+    // Find all recruiters for admin (excludes soft-deleted users)
+    @Query("SELECT rp FROM RecruiterProfile rp WHERE rp.user.deactivationReason IS NULL OR rp.user.deactivationReason NOT LIKE 'DELETED%'")
+    Page<RecruiterProfile> findAllExcludingDeleted(Pageable pageable);
 }
