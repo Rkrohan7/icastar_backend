@@ -4,6 +4,7 @@ import com.icastar.platform.dto.BlogDto;
 import com.icastar.platform.entity.Blog;
 import com.icastar.platform.entity.User;
 import com.icastar.platform.service.BlogService;
+import com.icastar.platform.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +30,7 @@ import java.util.Map;
 public class AdminBlogController {
 
     private final BlogService blogService;
+    private final UserService userService;
 
     @Operation(summary = "Get all blogs", description = "Get all blogs including drafts with pagination")
     @GetMapping
@@ -74,8 +76,10 @@ public class AdminBlogController {
             @RequestBody BlogDto.CreateBlogRequest request,
             Authentication authentication) {
 
-        User admin = (User) authentication.getPrincipal();
-        log.info("Admin {} creating new blog: {}", admin.getEmail(), request.getTitle());
+        String email = authentication.getName();
+        User admin = userService.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        log.info("Admin {} creating new blog: {}", email, request.getTitle());
 
         Blog blog = blogService.createBlog(request, admin.getId());
 
@@ -94,8 +98,8 @@ public class AdminBlogController {
             @RequestBody BlogDto.UpdateBlogRequest request,
             Authentication authentication) {
 
-        User admin = (User) authentication.getPrincipal();
-        log.info("Admin {} updating blog id: {}", admin.getEmail(), id);
+        String email = authentication.getName();
+        log.info("Admin {} updating blog id: {}", email, id);
 
         Blog blog = blogService.updateBlog(id, request);
 
@@ -113,8 +117,8 @@ public class AdminBlogController {
             @PathVariable Long id,
             Authentication authentication) {
 
-        User admin = (User) authentication.getPrincipal();
-        log.info("Admin {} deleting blog id: {}", admin.getEmail(), id);
+        String email = authentication.getName();
+        log.info("Admin {} deleting blog id: {}", email, id);
 
         blogService.deleteBlog(id);
 
