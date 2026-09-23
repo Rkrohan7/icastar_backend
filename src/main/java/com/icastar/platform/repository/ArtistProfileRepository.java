@@ -41,26 +41,26 @@ public interface ArtistProfileRepository extends JpaRepository<ArtistProfile, Lo
     @Query("SELECT ap FROM ArtistProfile ap ORDER BY ap.successfulHires DESC")
     Page<ArtistProfile> findTopArtistsByHires(Pageable pageable);
 
-    @Query("SELECT ap FROM ArtistProfile ap WHERE ap.user.status = 'ACTIVE' AND ap.isActive = true")
+    @Query("SELECT ap FROM ArtistProfile ap WHERE ap.user.status = 'ACTIVE' AND ap.user.accountStatus = 'ACTIVE' AND ap.isActive = true")
     List<ArtistProfile> findActiveArtists();
 
-    @Query("SELECT ap FROM ArtistProfile ap WHERE ap.user.status = 'ACTIVE' AND ap.isActive = true")
+    @Query("SELECT ap FROM ArtistProfile ap WHERE ap.user.status = 'ACTIVE' AND ap.user.accountStatus = 'ACTIVE' AND ap.isActive = true")
     Page<ArtistProfile> findActiveArtistsPageable(Pageable pageable);
 
-    @Query("SELECT ap FROM ArtistProfile ap WHERE ap.user.status = 'ACTIVE' AND ap.isActive = true AND ap.isVerifiedBadge = true")
+    @Query("SELECT ap FROM ArtistProfile ap WHERE ap.user.status = 'ACTIVE' AND ap.user.accountStatus = 'ACTIVE' AND ap.isActive = true AND ap.isVerifiedBadge = true")
     List<ArtistProfile> findActiveVerifiedArtists();
 
-    @Query("SELECT ap FROM ArtistProfile ap WHERE ap.user.status = 'ACTIVE' AND ap.isActive = true ORDER BY ap.totalApplications DESC")
+    @Query("SELECT ap FROM ArtistProfile ap WHERE ap.user.status = 'ACTIVE' AND ap.user.accountStatus = 'ACTIVE' AND ap.isActive = true ORDER BY ap.totalApplications DESC")
     Page<ArtistProfile> findMostActiveArtists(Pageable pageable);
 
     List<ArtistProfile> findByArtistTypeId(Long artistTypeId);
 
     List<ArtistProfile> findByArtistTypeName(String artistTypeName);
 
-    @Query("SELECT ap FROM ArtistProfile ap WHERE ap.artistType.id = :artistTypeId AND ap.user.status = 'ACTIVE' AND ap.isActive = true")
+    @Query("SELECT ap FROM ArtistProfile ap WHERE ap.artistType.id = :artistTypeId AND ap.user.status = 'ACTIVE' AND ap.user.accountStatus = 'ACTIVE' AND ap.isActive = true")
     List<ArtistProfile> findActiveArtistsByType(@Param("artistTypeId") Long artistTypeId);
 
-    @Query("SELECT ap FROM ArtistProfile ap WHERE ap.artistType.name = :artistTypeName AND ap.user.status = 'ACTIVE' AND ap.isActive = true")
+    @Query("SELECT ap FROM ArtistProfile ap WHERE ap.artistType.name = :artistTypeName AND ap.user.status = 'ACTIVE' AND ap.user.accountStatus = 'ACTIVE' AND ap.isActive = true")
     List<ArtistProfile> findActiveArtistsByTypeName(@Param("artistTypeName") String artistTypeName);
 
     @Query("SELECT ap FROM ArtistProfile ap WHERE " +

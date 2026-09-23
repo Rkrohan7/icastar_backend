@@ -270,6 +270,75 @@ public class SuperAdminController {
         return ResponseEntity.ok(response);
     }
 
+    @PatchMapping("/recruiters/{id}/status")
+    @Operation(summary = "Change Recruiter Status", description = "Change the status of a recruiter (ACTIVE, INACTIVE, SUSPENDED, BANNED)")
+    public ResponseEntity<Map<String, Object>> changeRecruiterStatus(
+            @PathVariable Long id,
+            @Valid @RequestBody AdminUserDto.ChangeStatusRequest request,
+            Authentication authentication) {
+
+        String email = authentication.getName();
+        User admin = userService.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Admin not found"));
+
+        log.info("Admin {} changing status of recruiter profile id: {} to {}", email, id, request.getStatus());
+
+        try {
+            AllRecruitersResponseDto recruiter = superAdminService.changeRecruiterStatus(id, request, admin.getId());
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Recruiter status changed successfully");
+            response.put("data", recruiter);
+
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            log.error("Error changing recruiter status: {}", e.getMessage());
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", e.getMessage());
+
+            if (e.getMessage().contains("not found")) {
+                return ResponseEntity.status(404).body(response);
+            }
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+
+    @DeleteMapping("/recruiters/{id}")
+    @Operation(summary = "Delete Recruiter", description = "Soft delete a recruiter (preserves data but marks as deleted)")
+    public ResponseEntity<Map<String, Object>> deleteRecruiter(
+            @PathVariable Long id,
+            @RequestParam(required = false) String reason,
+            Authentication authentication) {
+
+        String email = authentication.getName();
+        User admin = userService.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Admin not found"));
+
+        log.info("Admin {} deleting recruiter profile id: {}, reason: {}", email, id, reason);
+
+        try {
+            superAdminService.deleteRecruiter(id, reason, admin.getId());
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Recruiter deleted successfully");
+
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            log.error("Error deleting recruiter: {}", e.getMessage());
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", e.getMessage());
+
+            if (e.getMessage().contains("not found")) {
+                return ResponseEntity.status(404).body(response);
+            }
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+
     // ==================== ALL ARTISTS APIs ====================
 
     @GetMapping("/artists")
@@ -312,6 +381,75 @@ public class SuperAdminController {
         response.put("message", "Artist details retrieved successfully");
 
         return ResponseEntity.ok(response);
+    }
+
+    @PatchMapping("/artists/{id}/status")
+    @Operation(summary = "Change Artist Status", description = "Change the status of an artist (ACTIVE, INACTIVE, SUSPENDED, BANNED)")
+    public ResponseEntity<Map<String, Object>> changeArtistStatus(
+            @PathVariable Long id,
+            @Valid @RequestBody AdminUserDto.ChangeStatusRequest request,
+            Authentication authentication) {
+
+        String email = authentication.getName();
+        User admin = userService.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Admin not found"));
+
+        log.info("Admin {} changing status of artist profile id: {} to {}", email, id, request.getStatus());
+
+        try {
+            AllArtistsResponseDto artist = superAdminService.changeArtistStatus(id, request, admin.getId());
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Artist status changed successfully");
+            response.put("data", artist);
+
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            log.error("Error changing artist status: {}", e.getMessage());
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", e.getMessage());
+
+            if (e.getMessage().contains("not found")) {
+                return ResponseEntity.status(404).body(response);
+            }
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+
+    @DeleteMapping("/artists/{id}")
+    @Operation(summary = "Delete Artist", description = "Soft delete an artist (preserves data but marks as deleted)")
+    public ResponseEntity<Map<String, Object>> deleteArtist(
+            @PathVariable Long id,
+            @RequestParam(required = false) String reason,
+            Authentication authentication) {
+
+        String email = authentication.getName();
+        User admin = userService.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Admin not found"));
+
+        log.info("Admin {} deleting artist profile id: {}, reason: {}", email, id, reason);
+
+        try {
+            superAdminService.deleteArtist(id, reason, admin.getId());
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Artist deleted successfully");
+
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            log.error("Error deleting artist: {}", e.getMessage());
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", e.getMessage());
+
+            if (e.getMessage().contains("not found")) {
+                return ResponseEntity.status(404).body(response);
+            }
+            return ResponseEntity.badRequest().body(response);
+        }
     }
 
     // ==================== ALL JOBS APIs ====================

@@ -33,11 +33,11 @@ public interface JobRepository extends JpaRepository<Job, Long> {
     List<Job> findByStatus(Job.JobStatus status);
     Page<Job> findByStatus(Job.JobStatus status, Pageable pageable);
 
-    // Find active jobs
-    @Query("SELECT j FROM Job j WHERE j.status = 'ACTIVE' AND j.applicationDeadline >= :currentDate")
+    // Find active jobs (excludes jobs from inactive recruiters)
+    @Query("SELECT j FROM Job j WHERE j.status = 'ACTIVE' AND j.applicationDeadline >= :currentDate AND j.recruiter.status = 'ACTIVE' AND j.recruiter.accountStatus = 'ACTIVE'")
     List<Job> findActiveJobs(@Param("currentDate") LocalDate currentDate);
 
-    @Query("SELECT j FROM Job j WHERE j.status = 'ACTIVE' AND j.applicationDeadline >= :currentDate")
+    @Query("SELECT j FROM Job j WHERE j.status = 'ACTIVE' AND j.applicationDeadline >= :currentDate AND j.recruiter.status = 'ACTIVE' AND j.recruiter.accountStatus = 'ACTIVE'")
     Page<Job> findActiveJobs(@Param("currentDate") LocalDate currentDate, Pageable pageable);
 
     // Find jobs by location
@@ -98,16 +98,16 @@ public interface JobRepository extends JpaRepository<Job, Long> {
     @Query("SELECT j FROM Job j WHERE j.tags LIKE %:tag%")
     Page<Job> findByTag(@Param("tag") String tag, Pageable pageable);
 
-    // Find most popular jobs (by applications count)
-    @Query("SELECT j FROM Job j WHERE j.status = 'ACTIVE' ORDER BY j.applicationsCount DESC")
+    // Find most popular jobs (by applications count) - excludes inactive recruiters
+    @Query("SELECT j FROM Job j WHERE j.status = 'ACTIVE' AND j.recruiter.status = 'ACTIVE' AND j.recruiter.accountStatus = 'ACTIVE' ORDER BY j.applicationsCount DESC")
     List<Job> findMostPopularJobs(Pageable pageable);
 
-    // Find recently posted jobs
-    @Query("SELECT j FROM Job j WHERE j.status = 'ACTIVE' ORDER BY j.publishedAt DESC")
+    // Find recently posted jobs - excludes inactive recruiters
+    @Query("SELECT j FROM Job j WHERE j.status = 'ACTIVE' AND j.recruiter.status = 'ACTIVE' AND j.recruiter.accountStatus = 'ACTIVE' ORDER BY j.publishedAt DESC")
     List<Job> findRecentlyPostedJobs(Pageable pageable);
 
-    // Find jobs expiring soon
-    @Query("SELECT j FROM Job j WHERE j.status = 'ACTIVE' AND j.applicationDeadline BETWEEN :startDate AND :endDate ORDER BY j.applicationDeadline ASC")
+    // Find jobs expiring soon - excludes inactive recruiters
+    @Query("SELECT j FROM Job j WHERE j.status = 'ACTIVE' AND j.recruiter.status = 'ACTIVE' AND j.recruiter.accountStatus = 'ACTIVE' AND j.applicationDeadline BETWEEN :startDate AND :endDate ORDER BY j.applicationDeadline ASC")
     List<Job> findJobsExpiringSoon(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 
     // Count jobs by recruiter
@@ -116,11 +116,12 @@ public interface JobRepository extends JpaRepository<Job, Long> {
     // Count jobs by status
     Long countByStatus(Job.JobStatus status);
 
-    // Find jobs with comprehensive filters
+    // Find jobs with comprehensive filters (excludes inactive recruiters)
     @Query(value = "SELECT j FROM Job j " +
            "LEFT JOIN FETCH j.recruiter r " +
            "LEFT JOIN FETCH r.recruiterProfile " +
            "WHERE " +
+           "r.status = 'ACTIVE' AND r.accountStatus = 'ACTIVE' AND " +
            "(:searchTerm IS NULL OR " +
            "LOWER(j.title) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
            "LOWER(j.description) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
@@ -134,7 +135,8 @@ public interface JobRepository extends JpaRepository<Job, Long> {
            "(:isRemote IS NULL OR j.isRemote = :isRemote) AND " +
            "(:isUrgent IS NULL OR j.isUrgent = :isUrgent) AND " +
            "(:isFeatured IS NULL OR j.isFeatured = :isFeatured)",
-           countQuery = "SELECT COUNT(j) FROM Job j WHERE " +
+           countQuery = "SELECT COUNT(j) FROM Job j JOIN j.recruiter r WHERE " +
+           "r.status = 'ACTIVE' AND r.accountStatus = 'ACTIVE' AND " +
            "(:searchTerm IS NULL OR " +
            "LOWER(j.title) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
            "LOWER(j.description) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
@@ -164,10 +166,10 @@ public interface JobRepository extends JpaRepository<Job, Long> {
     // Artist dashboard queries
 
     /**
-     * Find active jobs for AI matching
+     * Find active jobs for AI matching - excludes inactive recruiters
      * Returns jobs with status=ACTIVE and (no deadline OR deadline in future)
      */
-    @Query("SELECT j FROM Job j WHERE j.status = 'ACTIVE' AND (j.applicationDeadline IS NULL OR j.applicationDeadline >= :currentDate) ORDER BY j.publishedAt DESC")
+    @Query("SELECT j FROM Job j WHERE j.status = 'ACTIVE' AND j.recruiter.status = 'ACTIVE' AND j.recruiter.accountStatus = 'ACTIVE' AND (j.applicationDeadline IS NULL OR j.applicationDeadline >= :currentDate) ORDER BY j.publishedAt DESC")
     List<Job> findActiveJobsForMatching(@Param("currentDate") LocalDate currentDate);
 
     /**

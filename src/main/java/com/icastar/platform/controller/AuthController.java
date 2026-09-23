@@ -251,7 +251,15 @@ public class AuthController {
                 // User login
                 User user = userRepository.findByEmailOrMobile(request.getMobile(), request.getMobile())
                         .orElseThrow(() -> new RuntimeException("User not found"));
-                
+
+                // Check if user is active
+                if (user.getStatus() != User.UserStatus.ACTIVE) {
+                    Map<String, Object> response = new HashMap<>();
+                    response.put("success", false);
+                    response.put("message", "Account is not active. Please contact support.");
+                    return ResponseEntity.badRequest().body(response);
+                }
+
                 // Update last login
                 user.setLastLogin(LocalDateTime.now());
                 user.setFailedLoginAttempts(0);

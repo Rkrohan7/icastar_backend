@@ -1365,4 +1365,232 @@ public class SuperAdminService {
                 .emailsFailed(emailsFailed)
                 .build();
     }
+
+    // ==================== ARTIST STATUS MANAGEMENT ====================
+
+    /**
+     * Change artist status by profile ID
+     * @param profileId ArtistProfile.id (not user.id)
+     */
+    @Transactional
+    public AllArtistsResponseDto changeArtistStatus(Long profileId, AdminUserDto.ChangeStatusRequest request, Long adminUserId) {
+        log.info("Changing status of artist profile id: {} to {}", profileId, request.getStatus());
+
+        ArtistProfile artistProfile = artistProfileRepository.findById(profileId)
+                .orElseThrow(() -> new RuntimeException("Artist not found with id: " + profileId));
+
+        User user = artistProfile.getUser();
+        if (user == null) {
+            throw new RuntimeException("Artist user not found for profile id: " + profileId);
+        }
+
+        // Prevent changing admin accounts via this API
+        if (user.getRole() == User.UserRole.ADMIN) {
+            throw new RuntimeException("Cannot change admin status via artist API");
+        }
+
+        User admin = userRepository.findById(adminUserId).orElse(null);
+
+        try {
+            User.AccountStatus newStatus = User.AccountStatus.valueOf(request.getStatus().toUpperCase());
+            User.AccountStatus oldStatus = user.getAccountStatus();
+
+            user.setAccountStatus(newStatus);
+
+            // Also update UserStatus for consistency
+            switch (newStatus) {
+                case ACTIVE:
+                    user.setStatus(User.UserStatus.ACTIVE);
+                    user.setIsActive(true);
+                    user.setReactivatedAt(LocalDateTime.now());
+                    user.setReactivatedBy(admin);
+                    user.setReactivationReason(request.getReason());
+                    break;
+                case INACTIVE:
+                    user.setStatus(User.UserStatus.INACTIVE);
+                    user.setIsActive(false);
+                    user.setDeactivatedAt(LocalDateTime.now());
+                    user.setDeactivatedBy(admin);
+                    user.setDeactivationReason(request.getReason());
+                    break;
+                case SUSPENDED:
+                    user.setStatus(User.UserStatus.SUSPENDED);
+                    user.setIsActive(false);
+                    user.setDeactivatedAt(LocalDateTime.now());
+                    user.setDeactivatedBy(admin);
+                    user.setDeactivationReason(request.getReason());
+                    break;
+                case BANNED:
+                    user.setStatus(User.UserStatus.BANNED);
+                    user.setIsActive(false);
+                    user.setDeactivatedAt(LocalDateTime.now());
+                    user.setDeactivatedBy(admin);
+                    user.setDeactivationReason(request.getReason());
+                    break;
+                default:
+                    break;
+            }
+
+            userRepository.save(user);
+            log.info("Artist status changed from {} to {} by admin {}", oldStatus, newStatus, adminUserId);
+
+            return mapToArtistDto(artistProfile);
+        } catch (IllegalArgumentException e) {
+            throw new RuntimeException("Invalid status: " + request.getStatus());
+        }
+    }
+
+    /**
+     * Soft delete artist by profile ID
+     * Sets status to INACTIVE, marks deleted, and preserves data
+     */
+    @Transactional
+    public void deleteArtist(Long profileId, String reason, Long adminUserId) {
+        log.info("Soft deleting artist profile id: {} by admin {}", profileId, adminUserId);
+
+        ArtistProfile artistProfile = artistProfileRepository.findById(profileId)
+                .orElseThrow(() -> new RuntimeException("Artist not found with id: " + profileId));
+
+        User user = artistProfile.getUser();
+        if (user == null) {
+            throw new RuntimeException("Artist user not found for profile id: " + profileId);
+        }
+
+        // Prevent deleting admin accounts via this API
+        if (user.getRole() == User.UserRole.ADMIN) {
+            throw new RuntimeException("Cannot delete admin via artist API");
+        }
+
+        User admin = userRepository.findById(adminUserId).orElse(null);
+
+        // Soft delete - set status and preserve data
+        user.setAccountStatus(User.AccountStatus.BANNED);
+        user.setStatus(User.UserStatus.BANNED);
+        user.setIsActive(false);
+        user.setDeactivatedAt(LocalDateTime.now());
+        user.setDeactivatedBy(admin);
+        user.setDeactivationReason(reason != null ? "DELETED: " + reason : "DELETED by admin");
+
+        // Suffix email/mobile to allow reuse (soft delete pattern)
+        String timestamp = String.valueOf(System.currentTimeMillis());
+        user.setEmail(user.getEmail() + "_deleted_" + timestamp);
+        user.setMobile(user.getMobile() + "_deleted_" + timestamp);
+
+        userRepository.save(user);
+        log.info("Artist soft deleted successfully: profile id {}", profileId);
+    }
+
+    // ==================== RECRUITER STATUS MANAGEMENT ====================
+
+    /**
+     * Change recruiter status by profile ID
+     * @param profileId RecruiterProfile.id (not user.id)
+     */
+    @Transactional
+    public AllRecruitersResponseDto changeRecruiterStatus(Long profileId, AdminUserDto.ChangeStatusRequest request, Long adminUserId) {
+        log.info("Changing status of recruiter profile id: {} to {}", profileId, request.getStatus());
+
+        RecruiterProfile recruiterProfile = recruiterProfileRepository.findById(profileId)
+                .orElseThrow(() -> new RuntimeException("Recruiter not found with id: " + profileId));
+
+        User user = recruiterProfile.getUser();
+        if (user == null) {
+            throw new RuntimeException("Recruiter user not found for profile id: " + profileId);
+        }
+
+        // Prevent changing admin accounts via this API
+        if (user.getRole() == User.UserRole.ADMIN) {
+            throw new RuntimeException("Cannot change admin status via recruiter API");
+        }
+
+        User admin = userRepository.findById(adminUserId).orElse(null);
+
+        try {
+            User.AccountStatus newStatus = User.AccountStatus.valueOf(request.getStatus().toUpperCase());
+            User.AccountStatus oldStatus = user.getAccountStatus();
+
+            user.setAccountStatus(newStatus);
+
+            // Also update UserStatus for consistency
+            switch (newStatus) {
+                case ACTIVE:
+                    user.setStatus(User.UserStatus.ACTIVE);
+                    user.setIsActive(true);
+                    user.setReactivatedAt(LocalDateTime.now());
+                    user.setReactivatedBy(admin);
+                    user.setReactivationReason(request.getReason());
+                    break;
+                case INACTIVE:
+                    user.setStatus(User.UserStatus.INACTIVE);
+                    user.setIsActive(false);
+                    user.setDeactivatedAt(LocalDateTime.now());
+                    user.setDeactivatedBy(admin);
+                    user.setDeactivationReason(request.getReason());
+                    break;
+                case SUSPENDED:
+                    user.setStatus(User.UserStatus.SUSPENDED);
+                    user.setIsActive(false);
+                    user.setDeactivatedAt(LocalDateTime.now());
+                    user.setDeactivatedBy(admin);
+                    user.setDeactivationReason(request.getReason());
+                    break;
+                case BANNED:
+                    user.setStatus(User.UserStatus.BANNED);
+                    user.setIsActive(false);
+                    user.setDeactivatedAt(LocalDateTime.now());
+                    user.setDeactivatedBy(admin);
+                    user.setDeactivationReason(request.getReason());
+                    break;
+                default:
+                    break;
+            }
+
+            userRepository.save(user);
+            log.info("Recruiter status changed from {} to {} by admin {}", oldStatus, newStatus, adminUserId);
+
+            return mapToRecruiterDto(recruiterProfile);
+        } catch (IllegalArgumentException e) {
+            throw new RuntimeException("Invalid status: " + request.getStatus());
+        }
+    }
+
+    /**
+     * Soft delete recruiter by profile ID
+     * Sets status to INACTIVE, marks deleted, and preserves data
+     */
+    @Transactional
+    public void deleteRecruiter(Long profileId, String reason, Long adminUserId) {
+        log.info("Soft deleting recruiter profile id: {} by admin {}", profileId, adminUserId);
+
+        RecruiterProfile recruiterProfile = recruiterProfileRepository.findById(profileId)
+                .orElseThrow(() -> new RuntimeException("Recruiter not found with id: " + profileId));
+
+        User user = recruiterProfile.getUser();
+        if (user == null) {
+            throw new RuntimeException("Recruiter user not found for profile id: " + profileId);
+        }
+
+        // Prevent deleting admin accounts via this API
+        if (user.getRole() == User.UserRole.ADMIN) {
+            throw new RuntimeException("Cannot delete admin via recruiter API");
+        }
+
+        User admin = userRepository.findById(adminUserId).orElse(null);
+
+        // Soft delete - set status and preserve data
+        user.setAccountStatus(User.AccountStatus.BANNED);
+        user.setStatus(User.UserStatus.BANNED);
+        user.setIsActive(false);
+        user.setDeactivatedAt(LocalDateTime.now());
+        user.setDeactivatedBy(admin);
+        user.setDeactivationReason(reason != null ? "DELETED: " + reason : "DELETED by admin");
+
+        // Suffix email/mobile to allow reuse (soft delete pattern)
+        String timestamp = String.valueOf(System.currentTimeMillis());
+        user.setEmail(user.getEmail() + "_deleted_" + timestamp);
+        user.setMobile(user.getMobile() + "_deleted_" + timestamp);
+
+        userRepository.save(user);
+        log.info("Recruiter soft deleted successfully: profile id {}", profileId);
+    }
 }

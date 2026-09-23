@@ -44,6 +44,14 @@ public class PublicArtistProfileController {
             User user = userService.findById(userId)
                     .orElseThrow(() -> new RuntimeException("User not found"));
 
+            // Don't show inactive/suspended/banned artists
+            if (user.getStatus() != User.UserStatus.ACTIVE || user.getAccountStatus() != User.AccountStatus.ACTIVE) {
+                Map<String, Object> response = new HashMap<>();
+                response.put("success", false);
+                response.put("message", "Artist profile not found");
+                return ResponseEntity.status(404).body(response);
+            }
+
             ArtistProfile artistProfile = artistService.findByUserId(userId)
                     .orElseThrow(() -> new RuntimeException("Artist profile not found"));
 
