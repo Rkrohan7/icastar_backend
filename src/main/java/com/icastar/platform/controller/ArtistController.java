@@ -3,6 +3,7 @@ package com.icastar.platform.controller;
 import com.icastar.platform.dto.ArtistProfileFieldDto;
 import com.icastar.platform.dto.artist.CreateArtistProfileDto;
 import com.icastar.platform.dto.artist.ExperienceDto;
+import com.icastar.platform.dto.artist.EducationDto;
 import com.icastar.platform.dto.artist.SimpleCreateArtistProfileDto;
 import com.icastar.platform.entity.ArtistProfile;
 import com.icastar.platform.entity.ArtistProfileArtistType;
@@ -13,6 +14,7 @@ import java.util.ArrayList;
 import java.util.Optional;
 import com.icastar.platform.repository.ArtistProfileArtistTypeRepository;
 import com.icastar.platform.service.ArtistExperienceService;
+import com.icastar.platform.service.ArtistEducationService;
 import com.icastar.platform.service.ArtistService;
 import com.icastar.platform.service.ArtistProfileService;
 import com.icastar.platform.service.ArtistTypeService;
@@ -63,6 +65,7 @@ public class ArtistController {
     private final ObjectMapper objectMapper;
     private final ArtistProfileArtistTypeRepository artistProfileArtistTypeRepository;
     private final ArtistExperienceService artistExperienceService;
+    private final ArtistEducationService artistEducationService;
 
     @Value("${icastar.file.upload-dir:uploads/}")
     private String uploadDir;
@@ -155,6 +158,12 @@ public class ArtistController {
             List<ExperienceDto> savedExperiences = new ArrayList<>();
             if (createDto.getExperiences() != null) {
                 savedExperiences = artistExperienceService.saveExperiencesForOnboarding(artistProfile, createDto.getExperiences());
+            }
+
+            // Save educations during onboarding (handles empty list to clear old entries on re-submit)
+            List<EducationDto> savedEducations = new ArrayList<>();
+            if (createDto.getEducations() != null) {
+                savedEducations = artistEducationService.saveEducationsForOnboarding(artistProfile, createDto.getEducations());
             }
 
             // Get dynamic fields for the response
@@ -355,6 +364,10 @@ public class ArtistController {
             // Get experiences (sorted by startDate DESC)
             List<ExperienceDto> experiences = artistExperienceService.getExperiencesByArtistProfileId(artistProfile.getId());
             profileData.put("experiences", experiences);
+
+            // Get educations (sorted by endYear DESC)
+            List<EducationDto> educations = artistEducationService.getEducationsByArtistProfileId(artistProfile.getId());
+            profileData.put("educations", educations);
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
@@ -765,6 +778,146 @@ public class ArtistController {
             Map<String, Object> response = new HashMap<>();
             response.put("success", false);
             response.put("message", "Failed to delete experience");
+            response.put("error", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+
+    // ==================== EDUCATION CRUD ENDPOINTS ====================
+
+    /**
+     * Create a new education entry
+     * POST /api/artists/profile/educations
+     */
+    @PostMapping("/profile/educations")
+    @Operation(summary = "Create Education", description = "Add a new education entry for the logged-in artist")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Education created successfully"),
+        @ApiResponse(responseCode = "400", description = "Invalid input"),
+        @ApiResponse(responseCode = "403", description = "Artist profile not found")
+    })
+    public ResponseEntity<Map<String, Object>> createEducation(@Valid @RequestBody EducationDto educationDto) {
+        try {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            String email = authentication.getName();
+
+            User user = userService.findByEmail(email)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+
+            ArtistProfile artistProfile = artistService.findByUserId(user.getId())
+                    .orElseThrow(() -> new RuntimeException("Artist profile not found"));
+
+            EducationDto savedEducation = artistEducationService.createEducation(artistProfile.getId(), educationDto);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Education created successfully");
+            response.put("data", savedEducation);
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Error creating education", e);
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", "Failed to create education");
+            response.put("error", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+
+    /**
+     * Update an existing education entry
+     * PUT /api/artists/profile/educations/{id}
+     */
+    @PutMapping("/profile/educations/{id}")
+    @Operation(summary = "Update Education", description = "Update an existing education entry")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Education updated successfully"),
+        @ApiResponse(responseCode = "400", description = "Invalid input"),
+        @ApiResponse(responseCode = "403", description = "Education does not belong to this artist"),
+        @ApiResponse(responseCode = "404", description = "Education not found")
+    })
+    public ResponseEntity<Map<String, Object>> updateEducation(
+            @PathVariable Long id,
+            @Valid @RequestBody EducationDto educationDto) {
+        try {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            String email = authentication.getName();
+
+            User user = userService.findByEmail(email)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+
+            ArtistProfile artistProfile = artistService.findByUserId(user.getId())
+                    .orElseThrow(() -> new RuntimeException("Artist profile not found"));
+
+            // Check ownership
+            if (!artistEducationService.isEducationOwnedByArtist(id, artistProfile.getId())) {
+                Map<String, Object> response = new HashMap<>();
+                response.put("success", false);
+                response.put("message", "Education not found or does not belong to this artist");
+                return ResponseEntity.status(403).body(response);
+            }
+
+            EducationDto updatedEducation = artistEducationService.updateEducation(artistProfile.getId(), id, educationDto);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Education updated successfully");
+            response.put("data", updatedEducation);
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Error updating education", e);
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", "Failed to update education");
+            response.put("error", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+
+    /**
+     * Delete an education entry
+     * DELETE /api/artists/profile/educations/{id}
+     */
+    @DeleteMapping("/profile/educations/{id}")
+    @Operation(summary = "Delete Education", description = "Delete an education entry")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Education deleted successfully"),
+        @ApiResponse(responseCode = "403", description = "Education does not belong to this artist"),
+        @ApiResponse(responseCode = "404", description = "Education not found")
+    })
+    public ResponseEntity<Map<String, Object>> deleteEducation(@PathVariable Long id) {
+        try {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            String email = authentication.getName();
+
+            User user = userService.findByEmail(email)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+
+            ArtistProfile artistProfile = artistService.findByUserId(user.getId())
+                    .orElseThrow(() -> new RuntimeException("Artist profile not found"));
+
+            // Check ownership
+            if (!artistEducationService.isEducationOwnedByArtist(id, artistProfile.getId())) {
+                Map<String, Object> response = new HashMap<>();
+                response.put("success", false);
+                response.put("message", "Education not found or does not belong to this artist");
+                return ResponseEntity.status(403).body(response);
+            }
+
+            artistEducationService.deleteEducation(artistProfile.getId(), id);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Education deleted successfully");
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Error deleting education", e);
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", "Failed to delete education");
             response.put("error", e.getMessage());
             return ResponseEntity.badRequest().body(response);
         }

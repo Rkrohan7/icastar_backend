@@ -31,5 +31,8 @@ public class SimpleCreateArtistProfileDto {
 
     // Work experiences to save during onboarding
     private List<ExperienceDto> experiences;
+
+    // Educations to save during onboarding
+    private List<EducationDto> educations;
 }
 

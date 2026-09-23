@@ -27,8 +27,8 @@ import lombok.ToString;
 @Entity
 @Table(name = "artist_profiles")
 @Data
-@EqualsAndHashCode(callSuper = true, exclude = {"jobApplications", "bookmarkedJobs", "dynamicFields", "artistTypes", "experiences"})
-@ToString(exclude = {"jobApplications", "bookmarkedJobs", "dynamicFields", "artistTypes", "experiences"})
+@EqualsAndHashCode(callSuper = true, exclude = {"jobApplications", "bookmarkedJobs", "dynamicFields", "artistTypes", "experiences", "educations"})
+@ToString(exclude = {"jobApplications", "bookmarkedJobs", "dynamicFields", "artistTypes", "experiences", "educations"})
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class ArtistProfile extends BaseEntity {
 
@@ -201,6 +201,11 @@ public class ArtistProfile extends BaseEntity {
     @OneToMany(mappedBy = "artistProfile", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
     @JsonIgnore
     private List<ArtistExperience> experiences;
+
+    // Artist educations
+    @OneToMany(mappedBy = "artistProfile", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
+    @JsonIgnore
+    private List<ArtistEducation> educations;
 
     // Documents are linked through User entity, not directly to ArtistProfile
     // @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
