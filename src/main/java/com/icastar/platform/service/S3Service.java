@@ -113,6 +113,7 @@ public class S3Service {
             case "RESUME" -> "documents/resume/" + userId + "/" + fileName;
             case "VIDEO", "DEMO_REEL" -> "media/videos/" + userId + "/" + fileName;
             case "JOB_ATTACHMENT" -> "jobs/attachments/" + userId + "/" + fileName;
+            case "BLOG_IMAGE" -> "blogs/" + fileName;
             default -> "uploads/general/" + userId + "/" + fileName;
         };
     }
@@ -196,6 +197,7 @@ public class S3Service {
             case "ID_PROOF" -> "id_proof_url/" + userId + "/" + fileName;
             case "DANCE_SHOWREEL" -> "dance_showreel_url/" + userId + "/" + fileName;
             case "RECRUITER_PROFILE_PHOTO" -> "profiles/recruiter_profile/" + userId + "/" + fileName;
+            case "BLOG_IMAGE" -> "blogs/" + fileName;
             default -> "uploads/general/" + userId + "/" + fileName;
         };
     }

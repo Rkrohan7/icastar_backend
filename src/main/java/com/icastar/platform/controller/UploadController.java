@@ -56,6 +56,29 @@ public class UploadController {
 
             log.info("Generating presigned URL for user: {}, uploadType: {}", email, request.getUploadType());
 
+            // BLOG_IMAGE validation: admin only, image types only
+            if ("BLOG_IMAGE".equalsIgnoreCase(request.getUploadType())) {
+                // Check if user is admin
+                if (!User.UserRole.ADMIN.equals(user.getRole())) {
+                    Map<String, Object> response = new HashMap<>();
+                    response.put("success", false);
+                    response.put("message", "Only admins can upload blog images");
+                    return ResponseEntity.status(403).body(response);
+                }
+
+                // Validate content type (only image/jpeg, image/png, image/webp allowed)
+                String contentType = request.getFileType();
+                if (contentType == null ||
+                        (!contentType.equals("image/jpeg") &&
+                         !contentType.equals("image/png") &&
+                         !contentType.equals("image/webp"))) {
+                    Map<String, Object> response = new HashMap<>();
+                    response.put("success", false);
+                    response.put("message", "Only JPEG, PNG, and WebP images are allowed for blog images");
+                    return ResponseEntity.badRequest().body(response);
+                }
+            }
+
             PresignedUrlResponseDto presignedUrlResponse = s3Service.generatePresignedUrl(request, user);
 
             // Auto-save fileUrl to database based on uploadType

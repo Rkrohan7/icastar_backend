@@ -447,6 +447,7 @@ public class SuperAdminController {
                 .landingCastingDirectors(landingStats.get("landingCastingDirectors"))
                 .landingSuccessfulAuditions(landingStats.get("landingSuccessfulAuditions"))
                 .landingSuccessRate(landingStats.get("landingSuccessRate"))
+                .landingBlogsEnabled(systemSettingService.getBooleanValueOrDefault("landingBlogsEnabled", true))
                 // Other settings (hardcoded defaults, can be extended to read from DB)
                 .platformName(systemSettingService.getValueOrDefault("platformName", "iCastar"))
                 .platformEmail(systemSettingService.getValueOrDefault("platformEmail", "support@icastar.com"))

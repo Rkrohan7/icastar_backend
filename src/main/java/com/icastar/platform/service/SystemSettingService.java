@@ -28,6 +28,7 @@ public class SystemSettingService {
             "landingCastingDirectors",
             "landingSuccessfulAuditions",
             "landingSuccessRate",
+            "landingBlogsEnabled",
             // General settings
             "platformName",
             "platformEmail",
@@ -162,6 +163,9 @@ public class SystemSettingService {
 
         // Get enabled flag (default true)
         stats.put("enabled", getBooleanValueOrDefault("landingStatsEnabled", true));
+
+        // Get blogs enabled flag (default true)
+        stats.put("blogsEnabled", getBooleanValueOrDefault("landingBlogsEnabled", true));
 
         // Get values from DB with defaults
         stats.put("activeArtists", getIntValueOrDefault("landingActiveArtists",

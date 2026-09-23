@@ -1,16 +1,17 @@
 package com.icastar.platform.controller;
 
+import com.icastar.platform.dto.BlogDto;
+import com.icastar.platform.service.BlogService;
 import com.icastar.platform.service.SystemSettingService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -21,6 +22,7 @@ import java.util.Map;
 public class PublicLandingController {
 
     private final SystemSettingService systemSettingService;
+    private final BlogService blogService;
 
     /**
      * Get landing page stats (counters)
@@ -55,6 +57,7 @@ public class PublicLandingController {
             // Return default values on error
             Map<String, Object> defaultStats = new HashMap<>();
             defaultStats.put("enabled", true);
+            defaultStats.put("blogsEnabled", true);
             defaultStats.put("activeArtists", 10000);
             defaultStats.put("castingDirectors", 250);
             defaultStats.put("successfulAuditions", 10000);
@@ -65,6 +68,75 @@ public class PublicLandingController {
             response.put("data", defaultStats);
 
             return ResponseEntity.ok(response);
+        }
+    }
+
+    /**
+     * Get published blogs for landing page
+     * GET /api/public/blogs?size=3
+     * No authentication required
+     * Returns only PUBLISHED blogs, ordered by publishedAt descending
+     */
+    @Operation(summary = "Get published blogs", description = "Get published blogs for landing page - No authentication required")
+    @GetMapping("/blogs")
+    public ResponseEntity<Map<String, Object>> getPublishedBlogs(
+            @RequestParam(required = false) Integer size) {
+        try {
+            log.info("Fetching published blogs, size: {}", size);
+
+            List<BlogDto.PublicBlogDto> blogs = blogService.getPublishedBlogs(size);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("data", blogs);
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Error fetching published blogs", e);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", "Error fetching blogs");
+
+            return ResponseEntity.internalServerError().body(response);
+        }
+    }
+
+    /**
+     * Get single published blog by slug
+     * GET /api/public/blogs/{slug}
+     * No authentication required
+     * Returns 404 if blog not found or is draft
+     */
+    @Operation(summary = "Get blog by slug", description = "Get a single published blog by slug - No authentication required")
+    @GetMapping("/blogs/{slug}")
+    public ResponseEntity<Map<String, Object>> getBlogBySlug(@PathVariable String slug) {
+        try {
+            log.info("Fetching blog by slug: {}", slug);
+
+            BlogDto.PublicBlogDto blog = blogService.getPublishedBlogBySlug(slug)
+                    .orElse(null);
+
+            if (blog == null) {
+                Map<String, Object> response = new HashMap<>();
+                response.put("success", false);
+                response.put("message", "Blog not found");
+                return ResponseEntity.status(404).body(response);
+            }
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("data", blog);
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Error fetching blog by slug: {}", slug, e);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", "Error fetching blog");
+
+            return ResponseEntity.internalServerError().body(response);
         }
     }
 }

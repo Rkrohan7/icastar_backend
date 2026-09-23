@@ -21,6 +21,7 @@ public class SystemConfigDto {
     private Integer landingCastingDirectors;
     private Integer landingSuccessfulAuditions;
     private Integer landingSuccessRate;
+    private Boolean landingBlogsEnabled;
 
     // General Settings
     private String platformName;
