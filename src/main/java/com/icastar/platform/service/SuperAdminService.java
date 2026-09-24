@@ -1475,11 +1475,12 @@ public class SuperAdminService {
 
         // Suffix email/mobile to allow reuse (soft delete pattern)
         String timestamp = String.valueOf(System.currentTimeMillis());
+        String shortSuffix = "_d" + timestamp.substring(timestamp.length() - 6); // Short suffix for mobile (e.g., _d123456)
         if (user.getEmail() != null) {
             user.setEmail(user.getEmail() + "_deleted_" + timestamp);
         }
         if (user.getMobile() != null) {
-            user.setMobile(user.getMobile() + "_deleted_" + timestamp);
+            user.setMobile(user.getMobile() + shortSuffix);
         }
 
         userRepository.save(user);
@@ -1593,11 +1594,12 @@ public class SuperAdminService {
 
         // Suffix email/mobile to allow reuse (soft delete pattern)
         String timestamp = String.valueOf(System.currentTimeMillis());
+        String shortSuffix = "_d" + timestamp.substring(timestamp.length() - 6); // Short suffix for mobile (e.g., _d123456)
         if (user.getEmail() != null) {
             user.setEmail(user.getEmail() + "_deleted_" + timestamp);
         }
         if (user.getMobile() != null) {
-            user.setMobile(user.getMobile() + "_deleted_" + timestamp);
+            user.setMobile(user.getMobile() + shortSuffix);
         }
 
         userRepository.save(user);
