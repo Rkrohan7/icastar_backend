@@ -381,8 +381,23 @@ public class SuperAdminService {
     public Page<AllRecruitersResponseDto> getAllRecruiters(Pageable pageable, String search, String status, String category) {
         log.info("Fetching all recruiters - search: {}, status: {}, category: {}", search, status, category);
 
-        // Use findAllExcludingDeleted to hide soft-deleted recruiters
-        Page<RecruiterProfile> recruiters = recruiterProfileRepository.findAllExcludingDeleted(pageable);
+        // Convert status string to enum
+        User.UserStatus userStatus = null;
+        if (status != null && !status.isEmpty()) {
+            try {
+                userStatus = User.UserStatus.valueOf(status.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                log.warn("Invalid user status: {}", status);
+            }
+        }
+
+        // Use filtered query with status, category and search
+        Page<RecruiterProfile> recruiters = recruiterProfileRepository.findAllWithFilters(
+                userStatus,
+                category,
+                search,
+                pageable
+        );
 
         return recruiters.map(this::mapToRecruiterDto);
     }
@@ -394,8 +409,23 @@ public class SuperAdminService {
     public Page<AllArtistsResponseDto> getAllArtists(Pageable pageable, String search, String status, String artistType) {
         log.info("Fetching all artists - search: {}, status: {}, artistType: {}", search, status, artistType);
 
-        // Use findAllExcludingDeleted to hide soft-deleted artists
-        Page<ArtistProfile> artists = artistProfileRepository.findAllExcludingDeleted(pageable);
+        // Convert status string to enum
+        User.UserStatus userStatus = null;
+        if (status != null && !status.isEmpty()) {
+            try {
+                userStatus = User.UserStatus.valueOf(status.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                log.warn("Invalid user status: {}", status);
+            }
+        }
+
+        // Use filtered query with status, artistType and search
+        Page<ArtistProfile> artists = artistProfileRepository.findAllWithFilters(
+                userStatus,
+                artistType,
+                search,
+                pageable
+        );
 
         return artists.map(this::mapToArtistDto);
     }

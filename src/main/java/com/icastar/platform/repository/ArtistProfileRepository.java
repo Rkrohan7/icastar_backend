@@ -82,4 +82,19 @@ public interface ArtistProfileRepository extends JpaRepository<ArtistProfile, Lo
     // Find all artists for admin (excludes soft-deleted users)
     @Query("SELECT ap FROM ArtistProfile ap WHERE ap.user.deactivationReason IS NULL OR ap.user.deactivationReason NOT LIKE 'DELETED%'")
     Page<ArtistProfile> findAllExcludingDeleted(Pageable pageable);
+
+    // Find artists with filters (excludes soft-deleted users)
+    @Query("SELECT ap FROM ArtistProfile ap WHERE " +
+           "(ap.user.deactivationReason IS NULL OR ap.user.deactivationReason NOT LIKE 'DELETED%') " +
+           "AND (:status IS NULL OR ap.user.status = :status) " +
+           "AND (:artistTypeName IS NULL OR ap.artistType.name = :artistTypeName) " +
+           "AND (:search IS NULL OR LOWER(ap.stageName) LIKE LOWER(CONCAT('%', :search, '%')) " +
+           "OR LOWER(ap.user.firstName) LIKE LOWER(CONCAT('%', :search, '%')) " +
+           "OR LOWER(ap.user.lastName) LIKE LOWER(CONCAT('%', :search, '%')) " +
+           "OR LOWER(ap.user.email) LIKE LOWER(CONCAT('%', :search, '%')))")
+    Page<ArtistProfile> findAllWithFilters(
+            @Param("status") com.icastar.platform.entity.User.UserStatus status,
+            @Param("artistTypeName") String artistTypeName,
+            @Param("search") String search,
+            Pageable pageable);
 }
