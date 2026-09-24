@@ -80,18 +80,18 @@ public interface ArtistProfileRepository extends JpaRepository<ArtistProfile, Lo
     List<ArtistProfile> findIncompleteProfiles();
 
     // Find all artists for admin (excludes soft-deleted users)
-    @Query("SELECT ap FROM ArtistProfile ap WHERE ap.user.deactivationReason IS NULL OR ap.user.deactivationReason NOT LIKE 'DELETED%'")
+    @Query("SELECT ap FROM ArtistProfile ap LEFT JOIN ap.user u WHERE u.deactivationReason IS NULL OR u.deactivationReason NOT LIKE 'DELETED%'")
     Page<ArtistProfile> findAllExcludingDeleted(Pageable pageable);
 
     // Find artists with filters (excludes soft-deleted users)
-    @Query("SELECT ap FROM ArtistProfile ap WHERE " +
-           "(ap.user.deactivationReason IS NULL OR ap.user.deactivationReason NOT LIKE 'DELETED%') " +
-           "AND (:status IS NULL OR ap.user.status = :status) " +
-           "AND (:artistTypeName IS NULL OR ap.artistType.name = :artistTypeName) " +
-           "AND (:search IS NULL OR LOWER(ap.stageName) LIKE LOWER(CONCAT('%', :search, '%')) " +
-           "OR LOWER(ap.user.firstName) LIKE LOWER(CONCAT('%', :search, '%')) " +
-           "OR LOWER(ap.user.lastName) LIKE LOWER(CONCAT('%', :search, '%')) " +
-           "OR LOWER(ap.user.email) LIKE LOWER(CONCAT('%', :search, '%')))")
+    @Query("SELECT ap FROM ArtistProfile ap LEFT JOIN ap.user u LEFT JOIN ap.artistType at WHERE " +
+           "(u.deactivationReason IS NULL OR u.deactivationReason NOT LIKE 'DELETED%') " +
+           "AND (:status IS NULL OR u.status = :status) " +
+           "AND (:artistTypeName IS NULL OR at.name = :artistTypeName) " +
+           "AND (:search IS NULL OR (LOWER(ap.stageName) LIKE LOWER(CONCAT('%', :search, '%')) " +
+           "OR LOWER(u.firstName) LIKE LOWER(CONCAT('%', :search, '%')) " +
+           "OR LOWER(u.lastName) LIKE LOWER(CONCAT('%', :search, '%')) " +
+           "OR LOWER(u.email) LIKE LOWER(CONCAT('%', :search, '%'))))")
     Page<ArtistProfile> findAllWithFilters(
             @Param("status") com.icastar.platform.entity.User.UserStatus status,
             @Param("artistTypeName") String artistTypeName,

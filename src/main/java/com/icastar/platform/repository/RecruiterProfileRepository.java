@@ -46,17 +46,17 @@ public interface RecruiterProfileRepository extends JpaRepository<RecruiterProfi
     List<RecruiterProfile> findByCompanyNameOrContactPersonContaining(@Param("searchTerm") String searchTerm);
 
     // Find all recruiters for admin (excludes soft-deleted users)
-    @Query("SELECT rp FROM RecruiterProfile rp WHERE rp.user.deactivationReason IS NULL OR rp.user.deactivationReason NOT LIKE 'DELETED%'")
+    @Query("SELECT rp FROM RecruiterProfile rp LEFT JOIN rp.user u WHERE u.deactivationReason IS NULL OR u.deactivationReason NOT LIKE 'DELETED%'")
     Page<RecruiterProfile> findAllExcludingDeleted(Pageable pageable);
 
     // Find recruiters with filters (excludes soft-deleted users)
-    @Query("SELECT rp FROM RecruiterProfile rp WHERE " +
-           "(rp.user.deactivationReason IS NULL OR rp.user.deactivationReason NOT LIKE 'DELETED%') " +
-           "AND (:status IS NULL OR rp.user.status = :status) " +
-           "AND (:categoryName IS NULL OR rp.recruiterCategory.name = :categoryName) " +
-           "AND (:search IS NULL OR LOWER(rp.companyName) LIKE LOWER(CONCAT('%', :search, '%')) " +
+    @Query("SELECT rp FROM RecruiterProfile rp LEFT JOIN rp.user u LEFT JOIN rp.recruiterCategory rc WHERE " +
+           "(u.deactivationReason IS NULL OR u.deactivationReason NOT LIKE 'DELETED%') " +
+           "AND (:status IS NULL OR u.status = :status) " +
+           "AND (:categoryName IS NULL OR rc.name = :categoryName) " +
+           "AND (:search IS NULL OR (LOWER(rp.companyName) LIKE LOWER(CONCAT('%', :search, '%')) " +
            "OR LOWER(rp.contactPersonName) LIKE LOWER(CONCAT('%', :search, '%')) " +
-           "OR LOWER(rp.user.email) LIKE LOWER(CONCAT('%', :search, '%')))")
+           "OR LOWER(u.email) LIKE LOWER(CONCAT('%', :search, '%'))))")
     Page<RecruiterProfile> findAllWithFilters(
             @Param("status") com.icastar.platform.entity.User.UserStatus status,
             @Param("categoryName") String categoryName,
