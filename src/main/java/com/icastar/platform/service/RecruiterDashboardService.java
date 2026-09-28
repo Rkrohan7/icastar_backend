@@ -203,6 +203,7 @@ public class RecruiterDashboardService {
     /**
      * Browse artist profiles
      * Only returns artists with ACTIVE user status
+     * Sorted by latest added first (createdAt DESC)
      */
     @Transactional(readOnly = true)
     public Page<ArtistSuggestionDto> browseArtists(String artistCategory, String artistType, String location,
@@ -213,8 +214,15 @@ public class RecruiterDashboardService {
         User recruiter = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Recruiter not found"));
 
+        // Create pageable with sort by createdAt DESC (latest artists first)
+        Pageable sortedPageable = PageRequest.of(
+                pageable.getPageNumber(),
+                pageable.getPageSize(),
+                Sort.by(Sort.Direction.DESC, "createdAt")
+        );
+
         // Get only ACTIVE artist profiles (user.status = ACTIVE AND isActive = true)
-        Page<ArtistProfile> artistProfiles = artistProfileRepository.findActiveArtistsPageable(pageable);
+        Page<ArtistProfile> artistProfiles = artistProfileRepository.findActiveArtistsPageable(sortedPageable);
         
         // Apply filters
         if (artistCategory != null) {
