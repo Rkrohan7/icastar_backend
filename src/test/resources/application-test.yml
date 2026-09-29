@@ -29,6 +29,11 @@ logging:
     com.icastar: WARN
     org.springframework.security: WARN
 
+# iCastar configuration for tests
+icastar:
+  legal:
+    terms-version: "2025-12"
+
 # AWS S3 Configuration for tests (dummy values)
 aws:
   region: us-east-1

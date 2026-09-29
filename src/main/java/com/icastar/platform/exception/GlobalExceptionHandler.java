@@ -57,20 +57,27 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, Object>> handleValidationExceptions(MethodArgumentNotValidException ex, WebRequest request) {
         log.error("Validation exception occurred: {}", ex.getMessage(), ex);
-        
+
         Map<String, String> errors = new HashMap<>();
-        ex.getBindingResult().getAllErrors().forEach((error) -> {
+        String firstErrorMessage = "Validation failed";
+        boolean isFirst = true;
+        for (org.springframework.validation.ObjectError error : ex.getBindingResult().getAllErrors()) {
             String fieldName = ((FieldError) error).getField();
             String errorMessage = error.getDefaultMessage();
             errors.put(fieldName, errorMessage);
-        });
+            if (isFirst) {
+                firstErrorMessage = errorMessage;
+                isFirst = false;
+            }
+        }
 
         Map<String, Object> response = new HashMap<>();
         response.put("success", false);
+        response.put("message", firstErrorMessage);
         response.put("timestamp", LocalDateTime.now());
         response.put("error", Map.of(
             "code", "VALIDATION_ERROR",
-            "message", "Validation failed",
+            "message", firstErrorMessage,
             "details", errors
         ));
         response.put("path", request.getDescription(false).replace("uri=", ""));

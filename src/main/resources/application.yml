@@ -92,6 +92,10 @@ cors:
 
 # Third-party Service Placeholders
 icastar:
+  # Legal terms version - bump this whenever the Terms & Conditions or Privacy Policy pages change
+  legal:
+    terms-version: "2025-12"
+
   razorpay:
     key-id: ${RAZORPAY_KEY_ID:}
     key-secret: ${RAZORPAY_KEY_SECRET:}
