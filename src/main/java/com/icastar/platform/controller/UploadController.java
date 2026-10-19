@@ -25,6 +25,12 @@ import java.util.Map;
 @Slf4j
 public class UploadController {
 
+    private static final long MAX_ARTIST_PROFILE_IMAGE_SIZE = 5L * 1024 * 1024;
+    private static final java.util.Set<String> ARTIST_PROFILE_PHOTO_TYPES =
+            java.util.Set.of("FRONT", "LEFT", "RIGHT");
+    private static final java.util.Set<String> ALLOWED_ARTIST_IMAGE_CONTENT_TYPES =
+            java.util.Set.of("image/jpeg", "image/jpg", "image/png", "image/webp");
+
     private final S3Service s3Service;
     private final UserService userService;
     private final ArtistProfileService artistProfileService;
@@ -55,6 +61,37 @@ public class UploadController {
                     .orElseThrow(() -> new RuntimeException("User not found"));
 
             log.info("Generating presigned URL for user: {}, uploadType: {}", email, request.getUploadType());
+
+            boolean isProfilePhotoUpload = "PROFILE_PHOTO".equalsIgnoreCase(request.getUploadType());
+            if (request.getPhotoType() != null || (isProfilePhotoUpload && User.UserRole.ARTIST.equals(user.getRole()))) {
+                if (!isProfilePhotoUpload) {
+                    return ResponseEntity.badRequest().body(Map.of(
+                            "success", false,
+                            "message", "photoType is only supported for PROFILE_PHOTO uploads"));
+                }
+                if (!User.UserRole.ARTIST.equals(user.getRole())) {
+                    return ResponseEntity.status(403).body(Map.of(
+                            "success", false,
+                            "message", "Only artists can upload artist profile photos"));
+                }
+                if (request.getPhotoType() == null ||
+                        !ARTIST_PROFILE_PHOTO_TYPES.contains(request.getPhotoType().toUpperCase(java.util.Locale.ROOT))) {
+                    return ResponseEntity.badRequest().body(Map.of(
+                            "success", false,
+                            "message", "photoType must be FRONT, LEFT, or RIGHT for PROFILE_PHOTO uploads"));
+                }
+                if (!ALLOWED_ARTIST_IMAGE_CONTENT_TYPES.contains(
+                        request.getFileType().toLowerCase(java.util.Locale.ROOT))) {
+                    return ResponseEntity.badRequest().body(Map.of(
+                            "success", false,
+                            "message", "Only JPEG, JPG, PNG, and WebP images are allowed"));
+                }
+                if (request.getFileSize() == null || request.getFileSize() > MAX_ARTIST_PROFILE_IMAGE_SIZE) {
+                    return ResponseEntity.badRequest().body(Map.of(
+                            "success", false,
+                            "message", "fileSize is required and must not exceed 5 MB"));
+                }
+            }
 
             // BLOG_IMAGE validation: admin only, image types only
             if ("BLOG_IMAGE".equalsIgnoreCase(request.getUploadType())) {
@@ -92,13 +129,15 @@ public class UploadController {
                         break;
                     case "PROFILE_PHOTO":
                     case "ARTIST_PROFILE":
-                        // Check user role and update appropriate profile
-                        if (User.UserRole.RECRUITER.equals(user.getRole())) {
-                            recruiterDashboardService.updateProfilePhotoUrl(user.getId(), fileUrl);
-                            log.info("Saved profile photo URL for recruiter: {}", email);
-                        } else {
-                            artistProfileService.updateProfilePhotoUrl(user.getId(), fileUrl);
-                            log.info("Saved profile photo URL for artist: {}", email);
+                        // Directional profile images are saved after upload through the profile update API.
+                        if (request.getPhotoType() == null) {
+                            if (User.UserRole.RECRUITER.equals(user.getRole())) {
+                                recruiterDashboardService.updateProfilePhotoUrl(user.getId(), fileUrl);
+                                log.info("Saved profile photo URL for recruiter: {}", email);
+                            } else {
+                                artistProfileService.updateProfilePhotoUrl(user.getId(), fileUrl);
+                                log.info("Saved profile photo URL for artist: {}", email);
+                            }
                         }
                         break;
                     case "COVER_PHOTO":
@@ -144,6 +183,7 @@ public class UploadController {
     @PostMapping(value = "/artist-profile-photo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Map<String, Object>> uploadArtistProfilePhoto(
             @RequestParam("file") MultipartFile file,
+            @RequestParam("photoType") String photoType,
             Authentication authentication) {
         try {
             if (authentication == null || authentication.getName() == null) {
@@ -161,33 +201,46 @@ public class UploadController {
                 return ResponseEntity.badRequest().body(response);
             }
 
-            // Validate file type (only images allowed)
+            String normalizedPhotoType = photoType.toUpperCase(java.util.Locale.ROOT);
+            if (!ARTIST_PROFILE_PHOTO_TYPES.contains(normalizedPhotoType)) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "success", false,
+                        "message", "photoType must be FRONT, LEFT, or RIGHT"));
+            }
+            if (file.getSize() > MAX_ARTIST_PROFILE_IMAGE_SIZE) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "success", false,
+                        "message", "Image must not exceed 5 MB"));
+            }
+
             String contentType = file.getContentType();
-            if (contentType == null || !contentType.startsWith("image/")) {
-                Map<String, Object> response = new HashMap<>();
-                response.put("success", false);
-                response.put("message", "Only image files are allowed");
-                return ResponseEntity.badRequest().body(response);
+            if (contentType == null || !ALLOWED_ARTIST_IMAGE_CONTENT_TYPES.contains(
+                    contentType.toLowerCase(java.util.Locale.ROOT))) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "success", false,
+                        "message", "Only JPEG, JPG, PNG, and WebP images are allowed"));
             }
 
             String email = authentication.getName();
             User user = userService.findByEmail(email)
                     .orElseThrow(() -> new RuntimeException("User not found"));
+            if (!User.UserRole.ARTIST.equals(user.getRole())) {
+                return ResponseEntity.status(403).body(Map.of(
+                        "success", false,
+                        "message", "Only artists can upload artist profile photos"));
+            }
 
-            log.info("Uploading artist profile photo for user: {}", email);
+            log.info("Uploading {} artist profile photo for user: {}", normalizedPhotoType, email);
 
             // Upload to S3
             String fileUrl = s3Service.uploadFile(file, "ARTIST_PROFILE_PHOTO", user.getId());
-
-            // Update profile_url in artist_profiles table
-            artistProfileService.updateProfilePhotoUrl(user.getId(), fileUrl);
+            artistProfileService.updateDirectionalProfilePhotoUrl(user.getId(), normalizedPhotoType, fileUrl);
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
             response.put("message", "Profile photo uploaded successfully");
-            response.put("data", Map.of(
-                    "profileUrl", fileUrl
-            ));
+            response.put("profileUrl", fileUrl);
+            response.put("data", Map.of("profileUrl", fileUrl));
 
             return ResponseEntity.ok(response);
 

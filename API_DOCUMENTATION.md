@@ -399,6 +399,46 @@ Replace `<your-jwt-token>` in the curl commands with the actual token received f
 
 ---
 
+## Artist Profile Photos (Front, Left, Right)
+
+Each image is uploaded independently. Request a presigned URL, PUT the image bytes to
+`presignedUrl` using the same `Content-Type` supplied in the request, then save the returned
+`fileUrl` with `PUT /api/artists/profile`. The photo URLs are stored in separate columns;
+omitted fields are left unchanged.
+
+### Generate a presigned URL
+
+`POST /api/upload/presigned-url` (authenticated):
+
+```json
+{
+  "fileName": "front.jpg",
+  "fileType": "image/jpeg",
+  "fileSize": 2400000,
+  "uploadType": "PROFILE_PHOTO",
+  "photoType": "FRONT"
+}
+```
+
+`photoType` must be `FRONT`, `LEFT`, or `RIGHT`. Allowed image types are JPEG/JPG, PNG,
+and WebP; each image must be no larger than 5 MB. Upload the bytes directly to S3 using
+the returned `presignedUrl` and the same `Content-Type`.
+
+### Save one or more uploaded image URLs
+
+`PUT /api/artists/profile` (authenticated), with any subset of:
+
+```json
+{
+  "rightProfilePhoto": "https://icastar-uploads.s3.ap-south-1.amazonaws.com/profiles/123/right_1234567890.jpg"
+}
+```
+
+The artist profile responses include `frontProfilePhoto`, `leftProfilePhoto`, and
+`rightProfilePhoto`, including `null` for images that have not been uploaded.
+
+---
+
 ## Testing Notes
 
 1. **Base URL**: Update the base URL if your application runs on a different port

@@ -4,6 +4,7 @@ import com.icastar.platform.dto.artist.CreateArtistProfileDto;
 import com.icastar.platform.entity.ArtistProfile;
 import com.icastar.platform.entity.User;
 import com.icastar.platform.service.ArtistService;
+import com.icastar.platform.service.ArtistProfileService;
 import com.icastar.platform.service.UserService;
 import com.icastar.platform.service.ActorService;
 import com.icastar.platform.service.DocumentService;
@@ -23,12 +24,14 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.groups.Default;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.ArrayList;
@@ -45,6 +48,7 @@ public class ActorController {
 
     private final ActorService actorService;
     private final ArtistService artistService;
+    private final ArtistProfileService artistProfileService;
     private final UserService userService;
     private final ArtistProfileRepository artistProfileRepository;
     private final ArtistTypeFieldRepository artistTypeFieldRepository;
@@ -85,7 +89,8 @@ public class ActorController {
     @PostMapping("/signup")
     public ResponseEntity<Map<String, Object>> actorSignup(
             @Parameter(description = "Actor signup details", required = true)
-            @Valid @RequestBody CreateArtistProfileDto request) {
+            @Validated({Default.class, CreateArtistProfileDto.RequiredFields.class})
+            @RequestBody CreateArtistProfileDto request) {
         try {
             // For actor signup, we need to create a user first
             // This should be handled by the existing user creation logic
@@ -178,6 +183,7 @@ public class ActorController {
 
             // Update actor profile
             ArtistProfile updatedProfile = actorService.updateActorProfile(existingProfile.getId(), request);
+            artistProfileService.evictProfileCaches(user.getId(), existingProfile.getId());
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);

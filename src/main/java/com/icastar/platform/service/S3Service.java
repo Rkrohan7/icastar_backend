@@ -3,7 +3,9 @@ package com.icastar.platform.service;
 import com.icastar.platform.config.S3Config;
 import com.icastar.platform.dto.upload.PresignedUrlRequestDto;
 import com.icastar.platform.dto.upload.PresignedUrlResponseDto;
+import com.icastar.platform.entity.ArtistProfile;
 import com.icastar.platform.entity.User;
+import com.icastar.platform.repository.ArtistProfileRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -17,6 +19,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.time.Duration;
+import java.util.Locale;
 import java.util.UUID;
 
 @Service
@@ -26,14 +29,17 @@ public class S3Service {
     private final S3Config s3Config;
     private final S3Presigner s3Presigner;
     private final S3Client s3Client;
+    private final ArtistProfileRepository artistProfileRepository;
 
     @Autowired
     public S3Service(S3Config s3Config,
                      @Autowired(required = false) S3Presigner s3Presigner,
-                     @Autowired(required = false) S3Client s3Client) {
+                     @Autowired(required = false) S3Client s3Client,
+                     ArtistProfileRepository artistProfileRepository) {
         this.s3Config = s3Config;
         this.s3Presigner = s3Presigner;
         this.s3Client = s3Client;
+        this.artistProfileRepository = artistProfileRepository;
     }
 
     /**
@@ -58,18 +64,30 @@ public class S3Service {
             }
             // Generate unique upload ID and file key
             String uploadId = UUID.randomUUID().toString();
-            String fileExtension = getFileExtension(request.getFileName());
+            String fileExtension = request.getPhotoType() == null
+                    ? getFileExtension(request.getFileName())
+                    : getImageExtension(request.getFileName(), request.getFileType());
             String uniqueFileName = uploadId + fileExtension;
 
             // Build S3 key path based on upload type
-            String s3Key = buildS3Key(request.getUploadType(), user.getId(), uniqueFileName);
+            String s3Key;
+            if (request.getPhotoType() != null) {
+                ArtistProfile artistProfile = artistProfileRepository.findByUserId(user.getId())
+                        .orElseThrow(() -> new RuntimeException("Artist profile not found"));
+                s3Key = buildArtistProfilePhotoKey(artistProfile.getId(), request.getPhotoType(), fileExtension);
+            } else {
+                s3Key = buildS3Key(request.getUploadType(), user.getId(), uniqueFileName);
+            }
 
             // Build the PutObjectRequest
-            PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+            PutObjectRequest.Builder putObjectBuilder = PutObjectRequest.builder()
                     .bucket(s3Config.getBucketName())
                     .key(s3Key)
-                    .contentType(request.getFileType())
-                    .build();
+                    .contentType(request.getFileType());
+            if (request.getPhotoType() != null) {
+                putObjectBuilder.contentLength(request.getFileSize());
+            }
+            PutObjectRequest putObjectRequest = putObjectBuilder.build();
 
             // Create presigned URL request
             PutObjectPresignRequest presignRequest = PutObjectPresignRequest.builder()
@@ -100,6 +118,29 @@ public class S3Service {
             log.error("Error generating presigned URL: {}", e.getMessage(), e);
             throw new RuntimeException("Failed to generate presigned URL: " + e.getMessage());
         }
+    }
+
+    private String buildArtistProfilePhotoKey(Long artistId, String photoType, String extension) {
+        String side = photoType.toLowerCase(Locale.ROOT);
+        return "profiles/" + artistId + "/" + side + "_" + System.currentTimeMillis() + extension;
+    }
+
+    private String getImageExtension(String fileName, String contentType) {
+        String extension = getFileExtension(fileName).toLowerCase(Locale.ROOT);
+        if (!extension.matches("\\.(jpe?g|png|webp)")) {
+            throw new IllegalArgumentException("Profile photo filename must have a .jpg, .jpeg, .png, or .webp extension");
+        }
+        String expectedType = switch (extension) {
+            case ".jpg", ".jpeg" -> "image/jpeg";
+            case ".png" -> "image/png";
+            case ".webp" -> "image/webp";
+            default -> throw new IllegalArgumentException("Unsupported profile photo file extension");
+        };
+        String normalizedContentType = "image/jpg".equalsIgnoreCase(contentType) ? "image/jpeg" : contentType;
+        if (!expectedType.equalsIgnoreCase(normalizedContentType)) {
+            throw new IllegalArgumentException("File extension does not match the image content type");
+        }
+        return extension;
     }
 
     /**

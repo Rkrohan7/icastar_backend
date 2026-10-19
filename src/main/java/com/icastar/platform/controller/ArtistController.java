@@ -232,6 +232,7 @@ public class ArtistController {
             profileData.put("email", user.getEmail());
             profileData.put("firstName", user.getFirstName());
             profileData.put("lastName", user.getLastName());
+            profileData.put("phone", user.getMobile());
             profileData.put("mobile", user.getMobile());
             profileData.put("isOnboardingComplete", user.getIsOnboardingComplete());
             profileData.put("artistProfile", artistProfile);
@@ -284,6 +285,7 @@ public class ArtistController {
             profileData.put("email", user.getEmail());
             profileData.put("firstName", user.getFirstName());
             profileData.put("lastName", user.getLastName());
+            profileData.put("phone", user.getMobile());
             profileData.put("mobile", user.getMobile());
             profileData.put("isOnboardingComplete", user.getIsOnboardingComplete());
 
@@ -293,6 +295,7 @@ public class ArtistController {
             profileData.put("bio", artistProfile.getBio());
             profileData.put("dateOfBirth", artistProfile.getDateOfBirth());
             profileData.put("gender", artistProfile.getGender());
+            profileData.put("city", artistProfile.getLocation());
             profileData.put("location", artistProfile.getLocation());
             profileData.put("maritalStatus", artistProfile.getMaritalStatus());
             profileData.put("languagesSpoken", artistProfile.getLanguagesSpoken());
@@ -317,6 +320,10 @@ public class ArtistController {
             profileData.put("portfolioUrls", artistProfile.getPortfolioUrls());
             profileData.put("danceShowreelUrl", artistProfile.getDanceShowreelUrl());
             profileData.put("profileUrl", artistProfile.getProfileUrl());
+            profileData.put("profilePhoto", artistProfile.getProfileUrl());
+            profileData.put("frontProfilePhoto", artistProfile.getFrontProfilePhoto());
+            profileData.put("leftProfilePhoto", artistProfile.getLeftProfilePhoto());
+            profileData.put("rightProfilePhoto", artistProfile.getRightProfilePhoto());
             profileData.put("coverPhotoUrl", artistProfile.getCoverPhotoUrl());
             profileData.put("idProofUrl", artistProfile.getIdProofUrl());
             profileData.put("faceVerificationUrl", artistProfile.getFaceVerificationUrl());
@@ -436,6 +443,16 @@ public class ArtistController {
             if (updateDto.getLastName() != null) {
                 profileUser.setLastName(updateDto.getLastName());
             }
+            if (updateDto.getPhone() != null) {
+                profileUser.setMobile(updateDto.getPhone());
+            }
+            if (updateDto.getEmail() != null && !updateDto.getEmail().equalsIgnoreCase(profileUser.getEmail())) {
+                Optional<User> userWithEmail = userService.findByEmail(updateDto.getEmail());
+                if (userWithEmail.isPresent() && !userWithEmail.get().getId().equals(profileUser.getId())) {
+                    throw new IllegalArgumentException("Email is already in use");
+                }
+                profileUser.setEmail(updateDto.getEmail());
+            }
             userService.save(profileUser);
 
             ArtistProfile updatedProfile = new ArtistProfile();
@@ -443,7 +460,7 @@ public class ArtistController {
             updatedProfile.setBio(updateDto.getBio());
             updatedProfile.setDateOfBirth(updateDto.getDateOfBirth());
             updatedProfile.setGender(updateDto.getGender());
-            updatedProfile.setLocation(updateDto.getLocation());
+            updatedProfile.setLocation(updateDto.getCity() != null ? updateDto.getCity() : updateDto.getLocation());
 
             if (updateDto.getSkills() != null) {
                 try {
@@ -455,6 +472,11 @@ public class ArtistController {
             }
             updatedProfile.setExperienceYears(updateDto.getExperienceYears());
             updatedProfile.setHourlyRate(updateDto.getHourlyRate());
+            if (updateDto.getArtistTypeId() != null) {
+                ArtistType artistType = artistTypeService.findById(updateDto.getArtistTypeId())
+                        .orElseThrow(() -> new RuntimeException("Artist type not found"));
+                updatedProfile.setArtistType(artistType);
+            }
 
             // Physical / personal fields
             updatedProfile.setMaritalStatus(updateDto.getMaritalStatus());
@@ -473,6 +495,10 @@ public class ArtistController {
             updatedProfile.setPhotoUrl(updateDto.getPhotoUrl());
             updatedProfile.setVideoUrl(updateDto.getVideoUrl());
             updatedProfile.setProfileUrl(updateDto.getProfileUrl());
+            updatedProfile.setFrontProfilePhoto(updateDto.getFrontProfilePhoto());
+            updatedProfile.setLeftProfilePhoto(updateDto.getLeftProfilePhoto());
+            updatedProfile.setRightProfilePhoto(updateDto.getRightProfilePhoto());
+            updatedProfile.setCoverPhotoUrl(updateDto.getCoverPhotoUrl());
 
             // Handle other JSON fields
             if (updateDto.getLanguagesSpoken() != null) {
@@ -521,6 +547,7 @@ public class ArtistController {
             }
 
             ArtistProfile savedProfile = artistService.updateArtistProfile(existingProfile.getId(), updatedProfile);
+            artistProfileService.evictProfileCaches(user.getId(), existingProfile.getId());
 
             // Handle dynamic fields if provided
             if (updateDto.getDynamicFields() != null && !updateDto.getDynamicFields().isEmpty()) {

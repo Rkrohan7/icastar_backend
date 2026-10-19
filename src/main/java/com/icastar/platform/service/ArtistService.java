@@ -116,6 +116,9 @@ public class ArtistService {
         if (updatedProfile.getLocation() != null) {
             existingProfile.setLocation(updatedProfile.getLocation());
         }
+        if (updatedProfile.getArtistType() != null) {
+            existingProfile.setArtistType(updatedProfile.getArtistType());
+        }
         // Note: Profile images and portfolio URLs are now handled by Document entity
         // They should be uploaded separately using the document upload API
         if (updatedProfile.getSkills() != null) {
@@ -189,6 +192,18 @@ public class ArtistService {
         }
         if (updatedProfile.getProfileUrl() != null) {
             existingProfile.setProfileUrl(updatedProfile.getProfileUrl());
+        }
+        if (updatedProfile.getFrontProfilePhoto() != null) {
+            existingProfile.setFrontProfilePhoto(updatedProfile.getFrontProfilePhoto());
+        }
+        if (updatedProfile.getLeftProfilePhoto() != null) {
+            existingProfile.setLeftProfilePhoto(updatedProfile.getLeftProfilePhoto());
+        }
+        if (updatedProfile.getRightProfilePhoto() != null) {
+            existingProfile.setRightProfilePhoto(updatedProfile.getRightProfilePhoto());
+        }
+        if (updatedProfile.getCoverPhotoUrl() != null) {
+            existingProfile.setCoverPhotoUrl(updatedProfile.getCoverPhotoUrl());
         }
 
         ArtistProfile saved = artistProfileRepository.save(existingProfile);

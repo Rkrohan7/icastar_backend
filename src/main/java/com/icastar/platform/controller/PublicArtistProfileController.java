@@ -104,6 +104,9 @@ public class PublicArtistProfileController {
             profileData.put("portfolioUrls", artistProfile.getPortfolioUrls());
             profileData.put("danceShowreelUrl", artistProfile.getDanceShowreelUrl());
             profileData.put("profileUrl", artistProfile.getProfileUrl());
+            profileData.put("frontProfilePhoto", artistProfile.getFrontProfilePhoto());
+            profileData.put("leftProfilePhoto", artistProfile.getLeftProfilePhoto());
+            profileData.put("rightProfilePhoto", artistProfile.getRightProfilePhoto());
             profileData.put("coverPhotoUrl", artistProfile.getCoverPhotoUrl());
             profileData.put("isVerified", artistProfile.getIsVerifiedBadge());
             profileData.put("isProfileComplete", artistProfile.getIsProfileComplete());

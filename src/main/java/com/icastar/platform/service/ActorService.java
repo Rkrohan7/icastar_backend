@@ -65,6 +65,9 @@ public class ActorService {
             artistProfile.setSkills(convertToJson(request.getSkills()));
             artistProfile.setExperienceYears(request.getExperienceYears());
             artistProfile.setHourlyRate(request.getHourlyRate());
+            artistProfile.setFrontProfilePhoto(request.getFrontProfilePhoto());
+            artistProfile.setLeftProfilePhoto(request.getLeftProfilePhoto());
+            artistProfile.setRightProfilePhoto(request.getRightProfilePhoto());
 
             // Save the basic profile first
             ArtistProfile savedProfile = artistProfileRepository.save(artistProfile);
@@ -117,6 +120,15 @@ public class ActorService {
             }
             if (request.getHourlyRate() != null) {
                 existingProfile.setHourlyRate(request.getHourlyRate());
+            }
+            if (request.getFrontProfilePhoto() != null) {
+                existingProfile.setFrontProfilePhoto(request.getFrontProfilePhoto());
+            }
+            if (request.getLeftProfilePhoto() != null) {
+                existingProfile.setLeftProfilePhoto(request.getLeftProfilePhoto());
+            }
+            if (request.getRightProfilePhoto() != null) {
+                existingProfile.setRightProfilePhoto(request.getRightProfilePhoto());
             }
 
             // Save basic profile updates

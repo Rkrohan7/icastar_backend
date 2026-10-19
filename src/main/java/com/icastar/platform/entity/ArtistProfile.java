@@ -137,6 +137,15 @@ public class ArtistProfile extends BaseEntity {
     @Column(name = "profile_url")
     private String profileUrl; // S3 URL for artist's profile image
 
+    @Column(name = "front_profile_photo", length = 2048)
+    private String frontProfilePhoto;
+
+    @Column(name = "left_profile_photo", length = 2048)
+    private String leftProfilePhoto;
+
+    @Column(name = "right_profile_photo", length = 2048)
+    private String rightProfilePhoto;
+
     @Column(name = "cover_photo_url")
     private String coverPhotoUrl; // S3 URL for artist's cover photo
 

@@ -1,5 +1,6 @@
 package com.icastar.platform.dto.artist;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import com.icastar.platform.dto.ArtistProfileFieldDto;
 import com.icastar.platform.entity.ArtistProfile;
 import com.icastar.platform.entity.Document;
@@ -66,6 +67,12 @@ public class ArtistProfileCompleteDto {
     private String videoUrl; // S3 URL for portfolio video
     private String portfolioUrls; // JSON string of portfolio URLs
     private String profileUrl; // S3 URL for profile image
+    @JsonAlias("frontProfilePhotoUrl")
+    private String frontProfilePhoto;
+    @JsonAlias("leftProfilePhotoUrl")
+    private String leftProfilePhoto;
+    @JsonAlias("rightProfilePhotoUrl")
+    private String rightProfilePhoto;
     private String coverPhotoUrl; // S3 URL for cover photo
     private String idProofUrl; // S3 URL for ID proof document
     private String faceVerificationUrl; // S3 URL for face verification image

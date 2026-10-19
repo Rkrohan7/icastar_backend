@@ -2,6 +2,7 @@ package com.icastar.platform.dto.artist;
 
 import com.icastar.platform.dto.ArtistProfileFieldDto;
 import com.icastar.platform.entity.ArtistProfile;
+import com.fasterxml.jackson.annotation.JsonAlias;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -13,6 +14,9 @@ import java.util.List;
 @Data
 public class CreateArtistProfileDto {
 
+    public interface RequiredFields {
+    }
+
     // Primary artist type ID (backward compatibility)
     // If artistTypeIds is provided, this will be set to the first element
     private Long artistTypeId;
@@ -21,13 +25,17 @@ public class CreateArtistProfileDto {
     // At least one artist type is required
     private List<Long> artistTypeIds;
     
-    @NotBlank(message = "First name is required")
-    @Size(min = 2, max = 50, message = "First name must be between 2 and 50 characters")
+    @NotBlank(message = "First name is required", groups = RequiredFields.class)
+    @Size(max = 50, message = "First name must not exceed 50 characters")
+    @Size(min = 2, max = 50, message = "First name must be between 2 and 50 characters", groups = RequiredFields.class)
     private String firstName;
     
-    @NotBlank(message = "Last name is required")
-    @Size(min = 2, max = 50, message = "Last name must be between 2 and 50 characters")
+    @NotBlank(message = "Last name is required", groups = RequiredFields.class)
+    @Size(max = 50, message = "Last name must not exceed 50 characters")
+    @Size(min = 2, max = 50, message = "Last name must be between 2 and 50 characters", groups = RequiredFields.class)
     private String lastName;
+
+    private String email;
     
     @Size(max = 100, message = "Stage name must not exceed 100 characters")
     private String stageName;
@@ -51,7 +59,16 @@ public class CreateArtistProfileDto {
     // Portfolio URLs (S3)
     private String photoUrl; // S3 URL for artist's portfolio photo
     private String videoUrl; // S3 URL for artist's portfolio video
+    @JsonAlias("profilePhoto")
     private String profileUrl; // S3 URL for artist's profile image
+    @JsonAlias("frontProfilePhotoUrl")
+    private String frontProfilePhoto;
+    @JsonAlias("leftProfilePhotoUrl")
+    private String leftProfilePhoto;
+    @JsonAlias("rightProfilePhotoUrl")
+    private String rightProfilePhoto;
+    @JsonAlias("coverPhoto")
+    private String coverPhotoUrl;
     private List<String> portfolioUrls; // List of portfolio URLs
 
     private List<ArtistProfileFieldDto> dynamicFields;

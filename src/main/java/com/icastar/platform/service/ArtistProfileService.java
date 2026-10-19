@@ -259,6 +259,15 @@ public class ArtistProfileService {
             if (updateDto.getProfileUrl() != null) {
                 artistProfile.setProfileUrl(updateDto.getProfileUrl());
             }
+            if (updateDto.getFrontProfilePhoto() != null) {
+                artistProfile.setFrontProfilePhoto(updateDto.getFrontProfilePhoto());
+            }
+            if (updateDto.getLeftProfilePhoto() != null) {
+                artistProfile.setLeftProfilePhoto(updateDto.getLeftProfilePhoto());
+            }
+            if (updateDto.getRightProfilePhoto() != null) {
+                artistProfile.setRightProfilePhoto(updateDto.getRightProfilePhoto());
+            }
             if (updateDto.getCoverPhotoUrl() != null) {
                 artistProfile.setCoverPhotoUrl(updateDto.getCoverPhotoUrl());
             }
@@ -324,6 +333,38 @@ public class ArtistProfileService {
             log.error("Error updating profile photo URL for user ID: {}", userId, e);
             throw new RuntimeException("Failed to update profile photo URL: " + e.getMessage());
         }
+    }
+
+    /**
+     * Update one of the artist's directional profile photo URLs.
+     */
+    @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = CacheNames.ARTIST_PROFILE_BY_USER, key = "#userId"),
+        @CacheEvict(value = CacheNames.ARTIST_PROFILE_BY_ID, allEntries = true)
+    })
+    public String updateDirectionalProfilePhotoUrl(Long userId, String photoType, String photoUrl) {
+        ArtistProfile artistProfile = artistProfileRepository.findByUserId(userId)
+                .orElseThrow(() -> new RuntimeException("Artist profile not found for user ID: " + userId));
+
+        switch (photoType) {
+            case "FRONT" -> artistProfile.setFrontProfilePhoto(photoUrl);
+            case "LEFT" -> artistProfile.setLeftProfilePhoto(photoUrl);
+            case "RIGHT" -> artistProfile.setRightProfilePhoto(photoUrl);
+            default -> throw new IllegalArgumentException("photoType must be FRONT, LEFT, or RIGHT");
+        }
+
+        artistProfileRepository.save(artistProfile);
+        log.info("Updated {} profile photo URL for user ID: {}", photoType, userId);
+        return photoUrl;
+    }
+
+    @Caching(evict = {
+        @CacheEvict(value = CacheNames.ARTIST_PROFILE_BY_USER, key = "#userId"),
+        @CacheEvict(value = CacheNames.ARTIST_PROFILE_BY_ID, key = "#artistProfileId")
+    })
+    public void evictProfileCaches(Long userId, Long artistProfileId) {
+        log.debug("Evicted cached artist profile for user {} and profile {}", userId, artistProfileId);
     }
 
     /**
@@ -518,6 +559,9 @@ public class ArtistProfileService {
         dto.setVideoUrl(artistProfile.getVideoUrl());
         dto.setPortfolioUrls(artistProfile.getPortfolioUrls());
         dto.setProfileUrl(artistProfile.getProfileUrl());
+        dto.setFrontProfilePhoto(artistProfile.getFrontProfilePhoto());
+        dto.setLeftProfilePhoto(artistProfile.getLeftProfilePhoto());
+        dto.setRightProfilePhoto(artistProfile.getRightProfilePhoto());
         dto.setCoverPhotoUrl(artistProfile.getCoverPhotoUrl());
         dto.setIdProofUrl(artistProfile.getIdProofUrl());
         dto.setFaceVerificationUrl(artistProfile.getFaceVerificationUrl());
