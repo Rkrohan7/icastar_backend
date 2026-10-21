@@ -1023,6 +1023,12 @@ public class SuperAdminService {
         artist.setIsVerifiedBadge(approved);
         artist.setVerificationApprovedAt(approved ? LocalDate.now() : null);
         artistProfileRepository.save(artist);
+
+        if (artist.getUser() != null && artist.getUser().getEmail() != null) {
+            emailService.sendFaceVerificationDecisionEmail(artist.getUser().getEmail(), approved);
+        } else {
+            log.warn("Cannot send face verification decision email for artist {}: email is unavailable", artistId);
+        }
     }
 
     private SuperAdminArtistPortfolioDto mapToArtistPortfolioDto(ArtistProfile artist) {

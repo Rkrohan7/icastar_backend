@@ -66,6 +66,20 @@ public class EmailService {
     }
 
     @Async
+    public void sendFaceVerificationDecisionEmail(String toEmail, boolean approved) {
+        String subject = approved
+                ? "Your face verification has been approved"
+                : "Your face verification was rejected";
+        String body = approved
+                ? "Hello,<br><br>Your face verification has been approved by the admin team."
+                    + "<br>Your artist profile is now verified.<br><br>Thank you,<br>iCastar Team"
+                : "Hello,<br><br>Your face verification submission was rejected by the admin team."
+                    + "<br>Please re-upload a clear face image and try again.<br><br>Thank you,<br>iCastar Team";
+
+        sendHtmlEmail(toEmail, subject, body);
+    }
+
+    @Async
     @Transactional
     public void sendOtpEmail(String toEmail, String otp) {
         CommunicationLog logEntry = null;
