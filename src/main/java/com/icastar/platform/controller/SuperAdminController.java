@@ -1030,6 +1030,26 @@ public class SuperAdminController {
         }
     }
 
+    @GetMapping("/artists/verification-queue")
+    @Operation(summary = "Get Artist Face Verification Queue", description = "Get artists with face verification submissions for review")
+    public ResponseEntity<Map<String, Object>> getFaceVerificationQueue() {
+        Map<String, Object> response = new HashMap<>();
+        response.put("data", superAdminService.getFaceVerificationQueue());
+        return ResponseEntity.ok(response);
+    }
+
+    @PatchMapping("/artists/{id}/verification")
+    @Operation(summary = "Review Artist Face Verification", description = "Approve or reject an artist's face verification submission")
+    public ResponseEntity<Map<String, Object>> reviewFaceVerification(
+            @PathVariable Long id,
+            @Valid @RequestBody FaceVerificationReviewDto review) {
+        superAdminService.reviewFaceVerification(id, review);
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("message", "Artist face verification reviewed successfully");
+        return ResponseEntity.ok(response);
+    }
+
     // ==================== REPORT CONTENT APIs ====================
 
     @GetMapping("/report-content")

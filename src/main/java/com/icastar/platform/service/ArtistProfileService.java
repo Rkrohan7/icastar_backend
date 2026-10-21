@@ -432,12 +432,22 @@ public class ArtistProfileService {
      * Update artist face verification URL
      */
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = CacheNames.ARTIST_PROFILE_BY_USER, key = "#userId"),
+            @CacheEvict(value = CacheNames.ARTIST_PROFILE_BY_ID, allEntries = true)
+    })
     public String updateFaceVerificationUrl(Long userId, String faceVerificationUrl) {
         try {
             ArtistProfile artistProfile = artistProfileRepository.findByUserId(userId)
                     .orElseThrow(() -> new RuntimeException("Artist profile not found for user ID: " + userId));
 
             artistProfile.setFaceVerificationUrl(faceVerificationUrl);
+            artistProfile.setFaceVerificationStatus(ArtistProfile.FaceVerificationStatus.PENDING);
+            artistProfile.setIsFaceVerified(false);
+            artistProfile.setFaceVerificationSubmittedAt(java.time.LocalDateTime.now());
+            artistProfile.setFaceVerificationReason(null);
+            artistProfile.setIsVerifiedBadge(false);
+            artistProfile.setVerificationApprovedAt(null);
             artistProfileRepository.save(artistProfile);
 
             log.info("Successfully updated face verification URL for user ID: {}", userId);
@@ -565,6 +575,8 @@ public class ArtistProfileService {
         dto.setCoverPhotoUrl(artistProfile.getCoverPhotoUrl());
         dto.setIdProofUrl(artistProfile.getIdProofUrl());
         dto.setFaceVerificationUrl(artistProfile.getFaceVerificationUrl());
+        dto.setFaceVerificationStatus(artistProfile.getFaceVerificationStatus().name());
+        dto.setIsFaceVerified(artistProfile.getIsFaceVerified());
         dto.setIdProofVerified(artistProfile.getIdProofVerified());
         dto.setIdProofUploadedAt(artistProfile.getIdProofUploadedAt());
         dto.setIsVerifiedBadge(artistProfile.getIsVerifiedBadge());

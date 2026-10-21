@@ -152,8 +152,21 @@ public class ArtistProfile extends BaseEntity {
     @Column(name = "id_proof_url")
     private String idProofUrl; // S3 URL for artist's ID proof document
 
-    @Column(name = "face_verification_url")
+    @Column(name = "face_verification_url", length = 2048)
     private String faceVerificationUrl; // S3 URL for artist's face verification image
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "face_verification_status", nullable = false, length = 32)
+    private FaceVerificationStatus faceVerificationStatus = FaceVerificationStatus.NOT_SUBMITTED;
+
+    @Column(name = "is_face_verified", nullable = false)
+    private Boolean isFaceVerified = false;
+
+    @Column(name = "face_verification_submitted_at")
+    private java.time.LocalDateTime faceVerificationSubmittedAt;
+
+    @Column(name = "face_verification_reason", columnDefinition = "TEXT")
+    private String faceVerificationReason;
 
     @Column(name = "id_proof_verified", nullable = false)
     private Boolean idProofVerified = false;
@@ -226,5 +239,9 @@ public class ArtistProfile extends BaseEntity {
 
     public enum MaritalStatus {
         SINGLE, MARRIED, DIVORCED, WIDOWED, PREFER_NOT_TO_SAY
+    }
+
+    public enum FaceVerificationStatus {
+        NOT_SUBMITTED, PENDING, APPROVED, REJECTED
     }
 }

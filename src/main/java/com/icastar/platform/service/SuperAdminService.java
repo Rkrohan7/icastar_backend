@@ -987,6 +987,44 @@ public class SuperAdminService {
         return mapToArtistPortfolioDto(artist);
     }
 
+    @Transactional(readOnly = true)
+    public List<FaceVerificationQueueItemDto> getFaceVerificationQueue() {
+        return artistProfileRepository.findFaceVerificationQueue(ArtistProfile.FaceVerificationStatus.PENDING)
+                .stream()
+                .map(artist -> FaceVerificationQueueItemDto.builder()
+                        .id(artist.getId())
+                        .firstName(artist.getFirstName())
+                        .lastName(artist.getLastName())
+                        .email(artist.getUser() != null ? artist.getUser().getEmail() : null)
+                        .stageName(artist.getStageName())
+                        .profileImage(artist.getProfileUrl())
+                        .faceVerificationUrl(artist.getFaceVerificationUrl())
+                        .faceVerificationStatus(artist.getFaceVerificationStatus().name())
+                        .isFaceVerified(artist.getIsFaceVerified())
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    @CacheEvict(value = {CacheNames.ARTIST_PROFILE_BY_USER, CacheNames.ARTIST_PROFILE_BY_ID}, allEntries = true)
+    public void reviewFaceVerification(Long artistId, FaceVerificationReviewDto review) {
+        ArtistProfile artist = artistProfileRepository.findById(artistId)
+                .orElseThrow(() -> new RuntimeException("Artist not found with id: " + artistId));
+
+        boolean approved = review.getStatus() == FaceVerificationReviewDto.Status.APPROVED;
+        if (approved && (artist.getFaceVerificationUrl() == null || artist.getFaceVerificationUrl().isBlank())) {
+            throw new IllegalStateException("Artist has not submitted a face verification image");
+        }
+        artist.setFaceVerificationStatus(approved
+                ? ArtistProfile.FaceVerificationStatus.APPROVED
+                : ArtistProfile.FaceVerificationStatus.REJECTED);
+        artist.setIsFaceVerified(approved);
+        artist.setFaceVerificationReason(review.getReason().trim());
+        artist.setIsVerifiedBadge(approved);
+        artist.setVerificationApprovedAt(approved ? LocalDate.now() : null);
+        artistProfileRepository.save(artist);
+    }
+
     private SuperAdminArtistPortfolioDto mapToArtistPortfolioDto(ArtistProfile artist) {
         User user = artist.getUser();
 

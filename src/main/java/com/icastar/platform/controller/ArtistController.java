@@ -4,6 +4,7 @@ import com.icastar.platform.dto.ArtistProfileFieldDto;
 import com.icastar.platform.dto.artist.CreateArtistProfileDto;
 import com.icastar.platform.dto.artist.ExperienceDto;
 import com.icastar.platform.dto.artist.EducationDto;
+import com.icastar.platform.dto.artist.FaceVerificationSubmissionDto;
 import com.icastar.platform.dto.artist.SimpleCreateArtistProfileDto;
 import com.icastar.platform.entity.ArtistProfile;
 import com.icastar.platform.entity.ArtistProfileArtistType;
@@ -235,6 +236,11 @@ public class ArtistController {
             profileData.put("phone", user.getMobile());
             profileData.put("mobile", user.getMobile());
             profileData.put("isOnboardingComplete", user.getIsOnboardingComplete());
+            profileData.put("faceVerificationUrl", artistProfile.getFaceVerificationUrl());
+            profileData.put("faceVerificationStatus", artistProfile.getFaceVerificationStatus().name());
+            profileData.put("isFaceVerified", artistProfile.getIsFaceVerified());
+            profileData.put("isVerified", Boolean.TRUE.equals(artistProfile.getIsFaceVerified())
+                    && artistProfile.getFaceVerificationStatus() == ArtistProfile.FaceVerificationStatus.APPROVED);
             profileData.put("artistProfile", artistProfile);
 
             Map<String, Object> response = new HashMap<>();
@@ -248,6 +254,31 @@ public class ArtistController {
             Map<String, Object> response = new HashMap<>();
             response.put("success", false);
             response.put("message", "Failed to get artist profile");
+            response.put("error", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+
+    @PostMapping("/face-verification")
+    public ResponseEntity<Map<String, Object>> submitFaceVerification(
+            @Valid @RequestBody FaceVerificationSubmissionDto request) {
+        try {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            String email = authentication.getName();
+            User user = userService.findByEmail(email)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+
+            artistProfileService.updateFaceVerificationUrl(user.getId(), request.getFaceImageUrl());
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Face verification submitted successfully");
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Error submitting face verification", e);
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", "Failed to submit face verification");
             response.put("error", e.getMessage());
             return ResponseEntity.badRequest().body(response);
         }
@@ -327,8 +358,11 @@ public class ArtistController {
             profileData.put("coverPhotoUrl", artistProfile.getCoverPhotoUrl());
             profileData.put("idProofUrl", artistProfile.getIdProofUrl());
             profileData.put("faceVerificationUrl", artistProfile.getFaceVerificationUrl());
+            profileData.put("faceVerificationStatus", artistProfile.getFaceVerificationStatus().name());
+            profileData.put("isFaceVerified", artistProfile.getIsFaceVerified());
             profileData.put("idProofVerified", artistProfile.getIdProofVerified());
-            profileData.put("isVerified", artistProfile.getIsVerifiedBadge());
+            profileData.put("isVerified", Boolean.TRUE.equals(artistProfile.getIsFaceVerified())
+                    && artistProfile.getFaceVerificationStatus() == ArtistProfile.FaceVerificationStatus.APPROVED);
             profileData.put("isProfileComplete", artistProfile.getIsProfileComplete());
 
             // Artist type (role) info - primary type
