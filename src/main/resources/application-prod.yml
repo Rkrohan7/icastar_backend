@@ -120,7 +120,7 @@ springdoc:
 # Production CORS
 cors:
   allowed-origins: ${CORS_ALLOWED_ORIGINS:https://icastar.com,https://www.icastar.com,https://app.icastar.com}
-  allowed-methods: GET,POST,PUT,DELETE,OPTIONS
+  allowed-methods: GET,POST,PUT,PATCH,DELETE,OPTIONS
   allowed-headers: "*"
   allow-credentials: true
   max-age: 3600
