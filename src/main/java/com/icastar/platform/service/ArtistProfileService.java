@@ -273,10 +273,13 @@ public class ArtistProfileService {
             }
             if (updateDto.getIdProofUrl() != null) {
                 artistProfile.setIdProofUrl(updateDto.getIdProofUrl());
-                // Set upload timestamp when ID proof is uploaded
-                if (artistProfile.getIdProofUploadedAt() == null) {
-                    artistProfile.setIdProofUploadedAt(java.time.LocalDate.now());
-                }
+                artistProfile.setIdProofUploadedAt(java.time.LocalDate.now());
+                artistProfile.setIdProofVerificationStatus(ArtistProfile.IdProofVerificationStatus.PENDING);
+                artistProfile.setIdProofVerified(false);
+                artistProfile.setIdProofVerificationSubmittedAt(java.time.LocalDateTime.now());
+                artistProfile.setIdProofVerificationReason(null);
+                artistProfile.setIsVerifiedBadge(false);
+                artistProfile.setVerificationApprovedAt(null);
             }
 
             // Handle onboarding completion
@@ -391,6 +394,10 @@ public class ArtistProfileService {
      * Update artist ID proof URL
      */
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = CacheNames.ARTIST_PROFILE_BY_USER, key = "#userId"),
+            @CacheEvict(value = CacheNames.ARTIST_PROFILE_BY_ID, allEntries = true)
+    })
     public String updateIdProofUrl(Long userId, String idProofUrl) {
         try {
             ArtistProfile artistProfile = artistProfileRepository.findByUserId(userId)
@@ -398,6 +405,12 @@ public class ArtistProfileService {
 
             artistProfile.setIdProofUrl(idProofUrl);
             artistProfile.setIdProofUploadedAt(java.time.LocalDate.now());
+            artistProfile.setIdProofVerificationStatus(ArtistProfile.IdProofVerificationStatus.PENDING);
+            artistProfile.setIdProofVerified(false);
+            artistProfile.setIdProofVerificationSubmittedAt(java.time.LocalDateTime.now());
+            artistProfile.setIdProofVerificationReason(null);
+            artistProfile.setIsVerifiedBadge(false);
+            artistProfile.setVerificationApprovedAt(null);
             artistProfileRepository.save(artistProfile);
 
             log.info("Successfully updated ID proof URL for user ID: {}", userId);
@@ -578,8 +591,9 @@ public class ArtistProfileService {
         dto.setFaceVerificationStatus(artistProfile.getFaceVerificationStatus().name());
         dto.setIsFaceVerified(artistProfile.getIsFaceVerified());
         dto.setIdProofVerified(artistProfile.getIdProofVerified());
+        dto.setIdProofVerificationStatus(artistProfile.getIdProofVerificationStatus().name());
         dto.setIdProofUploadedAt(artistProfile.getIdProofUploadedAt());
-        dto.setIsVerifiedBadge(artistProfile.getIsVerifiedBadge());
+        dto.setIsVerifiedBadge(artistProfile.hasApprovedFaceAndIdProof());
         dto.setVerificationRequestedAt(artistProfile.getVerificationRequestedAt());
         dto.setVerificationApprovedAt(artistProfile.getVerificationApprovedAt());
         dto.setTotalApplications(artistProfile.getTotalApplications());

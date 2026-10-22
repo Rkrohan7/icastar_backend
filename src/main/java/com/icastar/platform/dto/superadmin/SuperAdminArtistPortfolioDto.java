@@ -63,7 +63,6 @@ public class SuperAdminArtistPortfolioDto {
     private List<ProjectDto> projectsWorked;
 
     // Documents
-    private String idProofUrl;
     private String faceVerificationUrl;
     private Boolean idProofVerified;
     private LocalDate idProofUploadedAt;

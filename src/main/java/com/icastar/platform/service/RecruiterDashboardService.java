@@ -642,8 +642,12 @@ public class RecruiterDashboardService {
                 .totalApplications(artistProfile.getTotalApplications() != null ? artistProfile.getTotalApplications() : 0)
                 .totalHires(artistProfile.getSuccessfulHires() != null ? artistProfile.getSuccessfulHires() : 0)
                 .hireRate(0.0)
-                .verificationStatus(artistProfile.getIsVerifiedBadge() != null && artistProfile.getIsVerifiedBadge() ? "VERIFIED" : "UNVERIFIED")
-                .isVerified(artistProfile.getIsVerifiedBadge() != null && artistProfile.getIsVerifiedBadge())
+                .verificationStatus(artistProfile.hasApprovedFaceAndIdProof() ? "VERIFIED" : "UNVERIFIED")
+                .isVerified(artistProfile.hasApprovedFaceAndIdProof())
+                .faceVerificationStatus(artistProfile.getFaceVerificationStatus().name())
+                .isFaceVerified(artistProfile.getIsFaceVerified())
+                .idProofVerified(artistProfile.getIdProofVerified())
+                .idProofVerificationStatus(artistProfile.getIdProofVerificationStatus().name())
                 .isPremium(false)
                 .profileCompletionPercentage(completionPercentage)
                 // Physical Attributes
@@ -1147,7 +1151,11 @@ public class RecruiterDashboardService {
                             applicant.put("skills", artist.getSkills());
                             applicant.put("languagesSpoken", artist.getLanguagesSpoken());
                             applicant.put("hourlyRate", artist.getHourlyRate());
-                            applicant.put("isVerified", artist.getIsVerifiedBadge());
+                            applicant.put("faceVerificationStatus", artist.getFaceVerificationStatus().name());
+                            applicant.put("isFaceVerified", artist.getIsFaceVerified());
+                            applicant.put("idProofVerified", artist.getIdProofVerified());
+                            applicant.put("idProofVerificationStatus", artist.getIdProofVerificationStatus().name());
+                            applicant.put("isVerified", artist.hasApprovedFaceAndIdProof());
                         }
 
                         // Application specific details

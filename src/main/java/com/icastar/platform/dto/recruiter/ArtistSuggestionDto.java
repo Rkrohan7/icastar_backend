@@ -60,6 +60,10 @@ public class ArtistSuggestionDto {
     private Double hireRate;
     private String verificationStatus;
     private Boolean isVerified;
+    private String faceVerificationStatus;
+    private Boolean isFaceVerified;
+    private Boolean idProofVerified;
+    private String idProofVerificationStatus;
     private Boolean isPremium;
 
     // Profile Completeness

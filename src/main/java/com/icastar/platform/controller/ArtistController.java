@@ -239,8 +239,9 @@ public class ArtistController {
             profileData.put("faceVerificationUrl", artistProfile.getFaceVerificationUrl());
             profileData.put("faceVerificationStatus", artistProfile.getFaceVerificationStatus().name());
             profileData.put("isFaceVerified", artistProfile.getIsFaceVerified());
-            profileData.put("isVerified", Boolean.TRUE.equals(artistProfile.getIsFaceVerified())
-                    && artistProfile.getFaceVerificationStatus() == ArtistProfile.FaceVerificationStatus.APPROVED);
+            profileData.put("idProofVerified", artistProfile.getIdProofVerified());
+            profileData.put("idProofVerificationStatus", artistProfile.getIdProofVerificationStatus().name());
+            profileData.put("isVerified", artistProfile.hasApprovedFaceAndIdProof());
             profileData.put("artistProfile", artistProfile);
 
             Map<String, Object> response = new HashMap<>();
@@ -356,13 +357,12 @@ public class ArtistController {
             profileData.put("leftProfilePhoto", artistProfile.getLeftProfilePhoto());
             profileData.put("rightProfilePhoto", artistProfile.getRightProfilePhoto());
             profileData.put("coverPhotoUrl", artistProfile.getCoverPhotoUrl());
-            profileData.put("idProofUrl", artistProfile.getIdProofUrl());
             profileData.put("faceVerificationUrl", artistProfile.getFaceVerificationUrl());
             profileData.put("faceVerificationStatus", artistProfile.getFaceVerificationStatus().name());
             profileData.put("isFaceVerified", artistProfile.getIsFaceVerified());
             profileData.put("idProofVerified", artistProfile.getIdProofVerified());
-            profileData.put("isVerified", Boolean.TRUE.equals(artistProfile.getIsFaceVerified())
-                    && artistProfile.getFaceVerificationStatus() == ArtistProfile.FaceVerificationStatus.APPROVED);
+            profileData.put("idProofVerificationStatus", artistProfile.getIdProofVerificationStatus().name());
+            profileData.put("isVerified", artistProfile.hasApprovedFaceAndIdProof());
             profileData.put("isProfileComplete", artistProfile.getIsProfileComplete());
 
             // Artist type (role) info - primary type

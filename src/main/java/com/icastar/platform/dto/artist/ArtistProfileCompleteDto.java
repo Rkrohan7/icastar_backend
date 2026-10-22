@@ -1,6 +1,7 @@
 package com.icastar.platform.dto.artist;
 
 import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.icastar.platform.dto.ArtistProfileFieldDto;
 import com.icastar.platform.entity.ArtistProfile;
 import com.icastar.platform.entity.Document;
@@ -74,11 +75,13 @@ public class ArtistProfileCompleteDto {
     @JsonAlias("rightProfilePhotoUrl")
     private String rightProfilePhoto;
     private String coverPhotoUrl; // S3 URL for cover photo
-    private String idProofUrl; // S3 URL for ID proof document
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    private String idProofUrl; // Accepted for profile updates, never returned in profile responses
     private String faceVerificationUrl; // S3 URL for face verification image
     private String faceVerificationStatus;
     private Boolean isFaceVerified;
     private Boolean idProofVerified;
+    private String idProofVerificationStatus;
     private LocalDate idProofUploadedAt;
     private Boolean isVerifiedBadge;
     private LocalDate verificationRequestedAt;

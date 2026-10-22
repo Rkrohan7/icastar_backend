@@ -108,7 +108,12 @@ public class PublicArtistProfileController {
             profileData.put("leftProfilePhoto", artistProfile.getLeftProfilePhoto());
             profileData.put("rightProfilePhoto", artistProfile.getRightProfilePhoto());
             profileData.put("coverPhotoUrl", artistProfile.getCoverPhotoUrl());
-            profileData.put("isVerified", artistProfile.getIsVerifiedBadge());
+            profileData.put("faceVerificationStatus", artistProfile.getFaceVerificationStatus().name());
+            profileData.put("isFaceVerified", artistProfile.getIsFaceVerified());
+            profileData.put("idProofVerified", artistProfile.getIdProofVerified());
+            profileData.put("idProofVerificationStatus", artistProfile.getIdProofVerificationStatus().name());
+            profileData.put("isVerified", artistProfile.hasApprovedFaceAndIdProof());
+            profileData.put("isVerifiedBadge", artistProfile.hasApprovedFaceAndIdProof());
             profileData.put("isProfileComplete", artistProfile.getIsProfileComplete());
             profileData.put("totalApplications", artistProfile.getTotalApplications());
             profileData.put("successfulHires", artistProfile.getSuccessfulHires());

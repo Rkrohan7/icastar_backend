@@ -17,10 +17,16 @@ public interface ArtistProfileRepository extends JpaRepository<ArtistProfile, Lo
     Optional<ArtistProfile> findByUserId(Long userId);
 
     @Query("SELECT ap FROM ArtistProfile ap WHERE " +
-            "ap.faceVerificationStatus = :status OR ap.faceVerificationUrl IS NOT NULL OR ap.isFaceVerified = true " +
-            "ORDER BY ap.faceVerificationSubmittedAt DESC, ap.updatedAt DESC")
-    List<ArtistProfile> findFaceVerificationQueue(
-            @Param("status") ArtistProfile.FaceVerificationStatus status);
+            "ap.faceVerificationStatus = :faceStatus OR ap.faceVerificationUrl IS NOT NULL OR ap.isFaceVerified = true " +
+            "OR ap.idProofVerificationStatus = :idProofStatus OR ap.idProofUrl IS NOT NULL OR ap.idProofVerified = true " +
+            "ORDER BY CASE " +
+            "WHEN ap.faceVerificationSubmittedAt IS NULL THEN ap.idProofVerificationSubmittedAt " +
+            "WHEN ap.idProofVerificationSubmittedAt IS NULL THEN ap.faceVerificationSubmittedAt " +
+            "WHEN ap.faceVerificationSubmittedAt >= ap.idProofVerificationSubmittedAt THEN ap.faceVerificationSubmittedAt " +
+            "ELSE ap.idProofVerificationSubmittedAt END DESC, ap.updatedAt DESC")
+    List<ArtistProfile> findVerificationQueue(
+            @Param("faceStatus") ArtistProfile.FaceVerificationStatus faceStatus,
+            @Param("idProofStatus") ArtistProfile.IdProofVerificationStatus idProofStatus);
 
     List<ArtistProfile> findByIsVerifiedBadge(Boolean isVerifiedBadge);
 

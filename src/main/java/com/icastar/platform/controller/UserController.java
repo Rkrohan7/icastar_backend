@@ -262,7 +262,12 @@ public class UserController {
                 Map<String, Object> artistStats = new HashMap<>();
                 artistStats.put("totalApplications", user.getArtistProfile().getTotalApplications());
                 artistStats.put("successfulHires", user.getArtistProfile().getSuccessfulHires());
-                artistStats.put("isVerifiedBadge", user.getArtistProfile().getIsVerifiedBadge());
+                artistStats.put("isVerifiedBadge", user.getArtistProfile().hasApprovedFaceAndIdProof());
+                artistStats.put("faceVerificationStatus", user.getArtistProfile().getFaceVerificationStatus().name());
+                artistStats.put("isFaceVerified", user.getArtistProfile().getIsFaceVerified());
+                artistStats.put("idProofVerified", user.getArtistProfile().getIdProofVerified());
+                artistStats.put("idProofVerificationStatus",
+                        user.getArtistProfile().getIdProofVerificationStatus().name());
                 dashboard.put("artistStats", artistStats);
             } else if (user.getRole() == User.UserRole.RECRUITER && user.getRecruiterProfile() != null) {
                 Map<String, Object> recruiterStats = new HashMap<>();

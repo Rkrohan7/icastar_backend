@@ -179,7 +179,7 @@ public class AuthController {
                     Map<String, Object> profileData = new HashMap<>();
                     profileData.put("artistProfileId", artistProfile.getId());
                     profileData.put("stageName", artistProfile.getStageName());
-                    profileData.put("isVerified", artistProfile.getIsVerifiedBadge());
+                    profileData.put("isVerified", artistProfile.hasApprovedFaceAndIdProof());
                     profileData.put("isProfileComplete", artistProfile.getIsProfileComplete());
 
                     // Primary artist type (backward compatibility)

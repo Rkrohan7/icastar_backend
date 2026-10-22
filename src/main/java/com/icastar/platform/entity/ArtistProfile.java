@@ -149,6 +149,7 @@ public class ArtistProfile extends BaseEntity {
     @Column(name = "cover_photo_url")
     private String coverPhotoUrl; // S3 URL for artist's cover photo
 
+    @JsonIgnore
     @Column(name = "id_proof_url")
     private String idProofUrl; // S3 URL for artist's ID proof document
 
@@ -171,8 +172,18 @@ public class ArtistProfile extends BaseEntity {
     @Column(name = "id_proof_verified", nullable = false)
     private Boolean idProofVerified = false;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "id_proof_verification_status", nullable = false, length = 32)
+    private IdProofVerificationStatus idProofVerificationStatus = IdProofVerificationStatus.NOT_SUBMITTED;
+
     @Column(name = "id_proof_uploaded_at")
     private LocalDate idProofUploadedAt;
+
+    @Column(name = "id_proof_verification_submitted_at")
+    private java.time.LocalDateTime idProofVerificationSubmittedAt;
+
+    @Column(name = "id_proof_verification_reason", columnDefinition = "TEXT")
+    private String idProofVerificationReason;
 
     @Column(name = "is_verified_badge", nullable = false)
     private Boolean isVerifiedBadge = false;
@@ -243,5 +254,20 @@ public class ArtistProfile extends BaseEntity {
 
     public enum FaceVerificationStatus {
         NOT_SUBMITTED, PENDING, APPROVED, REJECTED
+    }
+
+    public enum IdProofVerificationStatus {
+        NOT_SUBMITTED, PENDING, APPROVED, REJECTED
+    }
+
+    public boolean hasApprovedFaceAndIdProof() {
+        return faceVerificationStatus == FaceVerificationStatus.APPROVED
+                && Boolean.TRUE.equals(isFaceVerified)
+                && faceVerificationUrl != null
+                && !faceVerificationUrl.isBlank()
+                && idProofVerificationStatus == IdProofVerificationStatus.APPROVED
+                && Boolean.TRUE.equals(idProofVerified)
+                && idProofUrl != null
+                && !idProofUrl.isBlank();
     }
 }

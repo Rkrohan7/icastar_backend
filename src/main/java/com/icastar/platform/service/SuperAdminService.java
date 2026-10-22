@@ -989,7 +989,9 @@ public class SuperAdminService {
 
     @Transactional(readOnly = true)
     public List<FaceVerificationQueueItemDto> getFaceVerificationQueue() {
-        return artistProfileRepository.findFaceVerificationQueue(ArtistProfile.FaceVerificationStatus.PENDING)
+        return artistProfileRepository.findVerificationQueue(
+                        ArtistProfile.FaceVerificationStatus.PENDING,
+                        ArtistProfile.IdProofVerificationStatus.PENDING)
                 .stream()
                 .map(artist -> FaceVerificationQueueItemDto.builder()
                         .id(artist.getId())
@@ -1001,6 +1003,9 @@ public class SuperAdminService {
                         .faceVerificationUrl(artist.getFaceVerificationUrl())
                         .faceVerificationStatus(artist.getFaceVerificationStatus().name())
                         .isFaceVerified(artist.getIsFaceVerified())
+                        .idProofUrl(artist.getIdProofUrl())
+                        .idProofVerified(artist.getIdProofVerified())
+                        .idProofVerificationStatus(artist.getIdProofVerificationStatus().name())
                         .build())
                 .collect(Collectors.toList());
     }
@@ -1020,14 +1025,42 @@ public class SuperAdminService {
                 : ArtistProfile.FaceVerificationStatus.REJECTED);
         artist.setIsFaceVerified(approved);
         artist.setFaceVerificationReason(review.getReason().trim());
-        artist.setIsVerifiedBadge(approved);
-        artist.setVerificationApprovedAt(approved ? LocalDate.now() : null);
+        artist.setIsVerifiedBadge(artist.hasApprovedFaceAndIdProof());
+        artist.setVerificationApprovedAt(artist.getIsVerifiedBadge() ? LocalDate.now() : null);
         artistProfileRepository.save(artist);
 
         if (artist.getUser() != null && artist.getUser().getEmail() != null) {
-            emailService.sendFaceVerificationDecisionEmail(artist.getUser().getEmail(), approved);
+            emailService.sendFaceVerificationDecisionEmail(
+                    artist.getUser().getEmail(), approved, artist.hasApprovedFaceAndIdProof());
         } else {
             log.warn("Cannot send face verification decision email for artist {}: email is unavailable", artistId);
+        }
+    }
+
+    @Transactional
+    @CacheEvict(value = {CacheNames.ARTIST_PROFILE_BY_USER, CacheNames.ARTIST_PROFILE_BY_ID}, allEntries = true)
+    public void reviewIdProofVerification(Long artistId, FaceVerificationReviewDto review) {
+        ArtistProfile artist = artistProfileRepository.findById(artistId)
+                .orElseThrow(() -> new RuntimeException("Artist not found with id: " + artistId));
+
+        boolean approved = review.getStatus() == FaceVerificationReviewDto.Status.APPROVED;
+        if (approved && (artist.getIdProofUrl() == null || artist.getIdProofUrl().isBlank())) {
+            throw new IllegalStateException("Artist has not submitted an ID proof document");
+        }
+        artist.setIdProofVerificationStatus(approved
+                ? ArtistProfile.IdProofVerificationStatus.APPROVED
+                : ArtistProfile.IdProofVerificationStatus.REJECTED);
+        artist.setIdProofVerified(approved);
+        artist.setIdProofVerificationReason(review.getReason().trim());
+        artist.setIsVerifiedBadge(artist.hasApprovedFaceAndIdProof());
+        artist.setVerificationApprovedAt(artist.getIsVerifiedBadge() ? LocalDate.now() : null);
+        artistProfileRepository.save(artist);
+
+        if (artist.getUser() != null && artist.getUser().getEmail() != null) {
+            emailService.sendIdProofVerificationDecisionEmail(
+                    artist.getUser().getEmail(), approved, artist.hasApprovedFaceAndIdProof());
+        } else {
+            log.warn("Cannot send ID proof verification decision email for artist {}: email is unavailable", artistId);
         }
     }
 
@@ -1076,14 +1109,13 @@ public class SuperAdminService {
                 .danceShowreelUrl(artist.getDanceShowreelUrl())
                 .portfolioUrls(portfolioUrls)
                 .projectsWorked(projects)
-                .idProofUrl(artist.getIdProofUrl())
                 .faceVerificationUrl(artist.getFaceVerificationUrl())
                 .idProofVerified(artist.getIdProofVerified())
                 .idProofUploadedAt(artist.getIdProofUploadedAt())
                 .hasPassport(artist.getHasPassport())
                 .travelCities(travelCities)
                 .hourlyRate(artist.getHourlyRate())
-                .isVerifiedBadge(artist.getIsVerifiedBadge())
+                .isVerifiedBadge(artist.hasApprovedFaceAndIdProof())
                 .verificationRequestedAt(artist.getVerificationRequestedAt())
                 .verificationApprovedAt(artist.getVerificationApprovedAt())
                 .totalApplications(artist.getTotalApplications())

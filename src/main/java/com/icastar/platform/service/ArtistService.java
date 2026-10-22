@@ -298,9 +298,7 @@ public class ArtistService {
                 .orElseThrow(() -> new RuntimeException("Artist profile not found"));
 
         artistProfile.setVerificationRequestedAt(java.time.LocalDate.now());
-        if (artistProfile.getFaceVerificationStatus() != ArtistProfile.FaceVerificationStatus.APPROVED) {
-            artistProfile.setIsVerifiedBadge(false);
-        }
+        artistProfile.setIsVerifiedBadge(artistProfile.hasApprovedFaceAndIdProof());
         return artistProfileRepository.save(artistProfile);
     }
 
@@ -308,9 +306,8 @@ public class ArtistService {
         ArtistProfile artistProfile = artistProfileRepository.findById(artistProfileId)
                 .orElseThrow(() -> new RuntimeException("Artist profile not found"));
 
-        if (artistProfile.getFaceVerificationStatus() != ArtistProfile.FaceVerificationStatus.APPROVED
-                || !Boolean.TRUE.equals(artistProfile.getIsFaceVerified())) {
-            throw new IllegalStateException("Face verification must be approved before granting the verification badge");
+        if (!artistProfile.hasApprovedFaceAndIdProof()) {
+            throw new IllegalStateException("Face and ID proof verification must be approved before granting the verification badge");
         }
         artistProfile.setIsVerifiedBadge(true);
         artistProfile.setVerificationApprovedAt(java.time.LocalDate.now());

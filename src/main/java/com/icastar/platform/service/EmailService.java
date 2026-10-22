@@ -66,15 +66,36 @@ public class EmailService {
     }
 
     @Async
-    public void sendFaceVerificationDecisionEmail(String toEmail, boolean approved) {
+    public void sendFaceVerificationDecisionEmail(String toEmail, boolean approved, boolean profileVerified) {
         String subject = approved
                 ? "Your face verification has been approved"
                 : "Your face verification was rejected";
         String body = approved
                 ? "Hello,<br><br>Your face verification has been approved by the admin team."
-                    + "<br>Your artist profile is now verified.<br><br>Thank you,<br>iCastar Team"
+                    + (profileVerified
+                        ? "<br>Your artist profile is now verified."
+                        : "<br>Your artist profile will be verified once your ID proof is approved.")
+                    + "<br><br>Thank you,<br>iCastar Team"
                 : "Hello,<br><br>Your face verification submission was rejected by the admin team."
                     + "<br>Please re-upload a clear face image and try again.<br><br>Thank you,<br>iCastar Team";
+
+        sendHtmlEmail(toEmail, subject, body);
+    }
+
+    @Async
+    public void sendIdProofVerificationDecisionEmail(String toEmail, boolean approved, boolean profileVerified) {
+        String subject = approved
+                ? "Your ID proof verification has been approved"
+                : "Your ID proof verification was rejected";
+        String body = approved
+                ? "Hello,<br><br>Your ID proof has been approved by the admin team."
+                    + (profileVerified
+                        ? "<br>Your artist profile is now verified."
+                        : "<br>Your artist profile will be verified once your face verification is approved.")
+                    + "<br><br>Thank you,<br>iCastar Team"
+                : "Hello,<br><br>Your ID proof submission was rejected by the admin team."
+                    + "<br>Please re-upload a clear and valid ID proof document and try again."
+                    + "<br><br>Thank you,<br>iCastar Team";
 
         sendHtmlEmail(toEmail, subject, body);
     }

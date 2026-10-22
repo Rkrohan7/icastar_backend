@@ -85,7 +85,11 @@ public class CandidateDashboardController {
             dashboardData.put("profile", Map.of(
                     "id", artistProfile.getId(),
                     "stageName", artistProfile.getStageName(),
-                    "isVerified", artistProfile.getIsVerifiedBadge(),
+                    "isVerified", artistProfile.hasApprovedFaceAndIdProof(),
+                    "faceVerificationStatus", artistProfile.getFaceVerificationStatus().name(),
+                    "isFaceVerified", artistProfile.getIsFaceVerified(),
+                    "idProofVerified", artistProfile.getIdProofVerified(),
+                    "idProofVerificationStatus", artistProfile.getIdProofVerificationStatus().name(),
                     "totalApplications", artistProfile.getTotalApplications(),
                     "successfulHires", artistProfile.getSuccessfulHires()
             ));

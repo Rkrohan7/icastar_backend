@@ -1050,6 +1050,18 @@ public class SuperAdminController {
         return ResponseEntity.ok(response);
     }
 
+    @PatchMapping("/artists/{id}/id-proof-verification")
+    @Operation(summary = "Review Artist ID Proof", description = "Approve or reject an artist's ID proof submission")
+    public ResponseEntity<Map<String, Object>> reviewIdProofVerification(
+            @PathVariable Long id,
+            @Valid @RequestBody FaceVerificationReviewDto review) {
+        superAdminService.reviewIdProofVerification(id, review);
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("message", "Artist ID proof verification reviewed successfully");
+        return ResponseEntity.ok(response);
+    }
+
     // ==================== REPORT CONTENT APIs ====================
 
     @GetMapping("/report-content")

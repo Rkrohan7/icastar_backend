@@ -15,4 +15,7 @@ public class FaceVerificationQueueItemDto {
     String faceVerificationUrl;
     String faceVerificationStatus;
     Boolean isFaceVerified;
+    String idProofUrl;
+    Boolean idProofVerified;
+    String idProofVerificationStatus;
 }
