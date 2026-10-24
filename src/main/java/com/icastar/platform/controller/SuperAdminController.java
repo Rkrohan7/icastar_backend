@@ -1062,6 +1062,38 @@ public class SuperAdminController {
         return ResponseEntity.ok(response);
     }
 
+    @GetMapping("/recruiters/verification-queue")
+    @Operation(summary = "Get Recruiter Verification Queue", description = "Get recruiters with face or ID proof submissions for review")
+    public ResponseEntity<Map<String, Object>> getRecruiterVerificationQueue() {
+        Map<String, Object> response = new HashMap<>();
+        response.put("data", superAdminService.getRecruiterVerificationQueue());
+        return ResponseEntity.ok(response);
+    }
+
+    @PatchMapping("/recruiters/{id}/face-verification")
+    @Operation(summary = "Review Recruiter Face Verification", description = "Approve or reject a recruiter's face verification")
+    public ResponseEntity<Map<String, Object>> reviewRecruiterFaceVerification(
+            @PathVariable Long id,
+            @Valid @RequestBody FaceVerificationReviewDto review) {
+        superAdminService.reviewRecruiterFaceVerification(id, review);
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("message", "Recruiter face verification reviewed successfully");
+        return ResponseEntity.ok(response);
+    }
+
+    @PatchMapping("/recruiters/{id}/id-proof-verification")
+    @Operation(summary = "Review Recruiter ID Proof", description = "Approve or reject a recruiter's ID proof")
+    public ResponseEntity<Map<String, Object>> reviewRecruiterIdProofVerification(
+            @PathVariable Long id,
+            @Valid @RequestBody FaceVerificationReviewDto review) {
+        superAdminService.reviewRecruiterIdProofVerification(id, review);
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("message", "Recruiter ID proof verification reviewed successfully");
+        return ResponseEntity.ok(response);
+    }
+
     // ==================== REPORT CONTENT APIs ====================
 
     @GetMapping("/report-content")

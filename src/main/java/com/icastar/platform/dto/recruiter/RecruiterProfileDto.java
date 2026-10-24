@@ -14,6 +14,12 @@ public class RecruiterProfileDto {
     private String firstName;
     private String lastName;
     private Boolean isVerified;
+    private String faceVerificationUrl;
+    private String faceVerificationStatus;
+    private Boolean isFaceVerified;
+    private String idProofUrl;
+    private String idProofVerificationStatus;
+    private Boolean idProofVerified;
 
     // === COMPANY DETAILS ===
     private String companyName;

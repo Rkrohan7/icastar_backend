@@ -223,6 +223,11 @@ public class AuthController {
                     Map<String, Object> profileData = new HashMap<>();
                     profileData.put("recruiterProfileId", recruiterProfile.getId());
                     profileData.put("companyName", recruiterProfile.getCompanyName());
+                    profileData.put("isVerified", recruiterProfile.hasApprovedFaceAndIdProof());
+                    profileData.put("faceVerificationStatus", recruiterProfile.getFaceVerificationStatus().name());
+                    profileData.put("isFaceVerified", recruiterProfile.getIsFaceVerified());
+                    profileData.put("idProofVerificationStatus", recruiterProfile.getIdProofVerificationStatus().name());
+                    profileData.put("idProofVerified", recruiterProfile.getIdProofVerified());
                     profileData.put("isVerifiedCompany", recruiterProfile.getIsVerifiedCompany());
                     userData.put("recruiterProfile", profileData);
                 });

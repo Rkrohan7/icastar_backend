@@ -816,7 +816,7 @@ public class RecruiterDashboardService {
         dto.setMobile(recruiter.getMobile());
         dto.setFirstName(recruiter.getFirstName());
         dto.setLastName(recruiter.getLastName());
-        dto.setIsVerified(recruiter.getIsVerified());
+        dto.setIsVerified(recruiterProfile.hasApprovedFaceAndIdProof());
 
         // === RECRUITER / COMPANY INFO ===
         dto.setId(recruiterProfile.getId());
@@ -828,6 +828,12 @@ public class RecruiterDashboardService {
         dto.setCompanyWebsite(recruiterProfile.getCompanyWebsite());
         dto.setCompanyLogoUrl(recruiterProfile.getCompanyLogoUrl());
         dto.setProfilePhotoUrl(recruiterProfile.getProfilePhotoUrl());
+        dto.setFaceVerificationUrl(recruiterProfile.getFaceVerificationUrl());
+        dto.setFaceVerificationStatus(recruiterProfile.getFaceVerificationStatus().name());
+        dto.setIsFaceVerified(recruiterProfile.getIsFaceVerified());
+        dto.setIdProofUrl(recruiterProfile.getIdProofUrl());
+        dto.setIdProofVerificationStatus(recruiterProfile.getIdProofVerificationStatus().name());
+        dto.setIdProofVerified(recruiterProfile.getIdProofVerified());
         dto.setIndustry(recruiterProfile.getIndustry());
         dto.setCompanySize(recruiterProfile.getCompanySize());
         dto.setLocation(recruiterProfile.getLocation());
@@ -877,6 +883,16 @@ public class RecruiterDashboardService {
         if (updateDto.getProfilePhotoUrl() != null) {
             recruiterProfile.setProfilePhotoUrl(updateDto.getProfilePhotoUrl());
         }
+        if (updateDto.getFaceVerificationUrl() != null) {
+            if (!Objects.equals(recruiterProfile.getFaceVerificationUrl(), updateDto.getFaceVerificationUrl())) {
+                updateRecruiterFaceVerification(recruiterProfile, updateDto.getFaceVerificationUrl());
+            }
+        }
+        if (updateDto.getIdProofUrl() != null) {
+            if (!Objects.equals(recruiterProfile.getIdProofUrl(), updateDto.getIdProofUrl())) {
+                updateRecruiterIdProof(recruiterProfile, updateDto.getIdProofUrl());
+            }
+        }
         if (updateDto.getIndustry() != null) {
             recruiterProfile.setIndustry(updateDto.getIndustry());
         }
@@ -925,6 +941,38 @@ public class RecruiterDashboardService {
 
         log.info("Updated profile photo URL for recruiter user ID: {}", userId);
         return profilePhotoUrl;
+    }
+
+    @Transactional
+    public String updateRecruiterFaceVerificationUrl(Long userId, String faceVerificationUrl) {
+        RecruiterProfile profile = recruiterProfileRepository.findByUserId(userId)
+                .orElseThrow(() -> new RuntimeException("Recruiter profile not found"));
+        updateRecruiterFaceVerification(profile, faceVerificationUrl);
+        recruiterProfileRepository.save(profile);
+        return faceVerificationUrl;
+    }
+
+    @Transactional
+    public String updateRecruiterIdProofUrl(Long userId, String idProofUrl) {
+        RecruiterProfile profile = recruiterProfileRepository.findByUserId(userId)
+                .orElseThrow(() -> new RuntimeException("Recruiter profile not found"));
+        updateRecruiterIdProof(profile, idProofUrl);
+        recruiterProfileRepository.save(profile);
+        return idProofUrl;
+    }
+
+    private void updateRecruiterFaceVerification(RecruiterProfile profile, String url) {
+        profile.setFaceVerificationUrl(url);
+        profile.setFaceVerificationStatus(RecruiterProfile.VerificationStatus.PENDING);
+        profile.setIsFaceVerified(false);
+        profile.setFaceVerificationReason(null);
+    }
+
+    private void updateRecruiterIdProof(RecruiterProfile profile, String url) {
+        profile.setIdProofUrl(url);
+        profile.setIdProofVerificationStatus(RecruiterProfile.VerificationStatus.PENDING);
+        profile.setIdProofVerified(false);
+        profile.setIdProofVerificationReason(null);
     }
 
     @Transactional

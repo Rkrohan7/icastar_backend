@@ -274,6 +274,13 @@ public class UserController {
                 recruiterStats.put("totalJobsPosted", user.getRecruiterProfile().getTotalJobsPosted());
                 recruiterStats.put("successfulHires", user.getRecruiterProfile().getSuccessfulHires());
                 recruiterStats.put("chatCredits", user.getRecruiterProfile().getChatCredits());
+                recruiterStats.put("isVerified", user.getRecruiterProfile().hasApprovedFaceAndIdProof());
+                recruiterStats.put("faceVerificationStatus",
+                        user.getRecruiterProfile().getFaceVerificationStatus().name());
+                recruiterStats.put("isFaceVerified", user.getRecruiterProfile().getIsFaceVerified());
+                recruiterStats.put("idProofVerificationStatus",
+                        user.getRecruiterProfile().getIdProofVerificationStatus().name());
+                recruiterStats.put("idProofVerified", user.getRecruiterProfile().getIdProofVerified());
                 recruiterStats.put("isVerifiedCompany", user.getRecruiterProfile().getIsVerifiedCompany());
                 dashboard.put("recruiterStats", recruiterStats);
             }

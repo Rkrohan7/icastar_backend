@@ -617,7 +617,11 @@ public class SuperAdminService {
                 .companyLogo(recruiter.getCompanyLogoUrl())
                 .website(recruiter.getCompanyWebsite())
                 .bio(recruiter.getCompanyDescription())
-                .isVerified(user != null ? user.getIsVerified() : false)
+                .isVerified(recruiter.hasApprovedFaceAndIdProof())
+                .faceVerificationStatus(recruiter.getFaceVerificationStatus().name())
+                .isFaceVerified(recruiter.getIsFaceVerified())
+                .idProofVerificationStatus(recruiter.getIdProofVerificationStatus().name())
+                .idProofVerified(recruiter.getIdProofVerified())
                 .accountStatus(user != null && user.getAccountStatus() != null ? user.getAccountStatus().name() : null)
                 .isActive(user != null ? user.getIsActive() : false)
                 .isOnboardingComplete(user != null ? user.getIsOnboardingComplete() : false)
@@ -1061,6 +1065,79 @@ public class SuperAdminService {
                     artist.getUser().getEmail(), approved, artist.hasApprovedFaceAndIdProof());
         } else {
             log.warn("Cannot send ID proof verification decision email for artist {}: email is unavailable", artistId);
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public List<RecruiterVerificationQueueItemDto> getRecruiterVerificationQueue() {
+        return recruiterProfileRepository.findVerificationQueue(RecruiterProfile.VerificationStatus.PENDING)
+                .stream()
+                .map(profile -> {
+                    User user = profile.getUser();
+                    return RecruiterVerificationQueueItemDto.builder()
+                            .id(profile.getId())
+                            .userId(user != null ? user.getId() : null)
+                            .firstName(user != null ? user.getFirstName() : null)
+                            .lastName(user != null ? user.getLastName() : null)
+                            .email(user != null ? user.getEmail() : null)
+                            .companyName(profile.getCompanyName())
+                            .contactPersonName(profile.getContactPersonName())
+                            .faceVerificationUrl(profile.getFaceVerificationUrl())
+                            .faceVerificationStatus(profile.getFaceVerificationStatus().name())
+                            .isFaceVerified(profile.getIsFaceVerified())
+                            .idProofUrl(profile.getIdProofUrl())
+                            .idProofVerificationStatus(profile.getIdProofVerificationStatus().name())
+                            .idProofVerified(profile.getIdProofVerified())
+                            .isVerified(profile.hasApprovedFaceAndIdProof())
+                            .build();
+                })
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public void reviewRecruiterFaceVerification(Long recruiterProfileId, FaceVerificationReviewDto review) {
+        RecruiterProfile profile = recruiterProfileRepository.findById(recruiterProfileId)
+                .orElseThrow(() -> new RuntimeException("Recruiter not found with id: " + recruiterProfileId));
+        boolean approved = review.getStatus() == FaceVerificationReviewDto.Status.APPROVED;
+        if (approved && (profile.getFaceVerificationUrl() == null || profile.getFaceVerificationUrl().isBlank())) {
+            throw new IllegalStateException("Recruiter has not submitted a face verification image");
+        }
+
+        profile.setFaceVerificationStatus(approved
+                ? RecruiterProfile.VerificationStatus.APPROVED
+                : RecruiterProfile.VerificationStatus.REJECTED);
+        profile.setIsFaceVerified(approved);
+        profile.setFaceVerificationReason(review.getReason().trim());
+        recruiterProfileRepository.save(profile);
+        sendRecruiterVerificationEmail(profile, "FACE_VERIFICATION", approved);
+    }
+
+    @Transactional
+    public void reviewRecruiterIdProofVerification(Long recruiterProfileId, FaceVerificationReviewDto review) {
+        RecruiterProfile profile = recruiterProfileRepository.findById(recruiterProfileId)
+                .orElseThrow(() -> new RuntimeException("Recruiter not found with id: " + recruiterProfileId));
+        boolean approved = review.getStatus() == FaceVerificationReviewDto.Status.APPROVED;
+        if (approved && (profile.getIdProofUrl() == null || profile.getIdProofUrl().isBlank())) {
+            throw new IllegalStateException("Recruiter has not submitted an ID proof document");
+        }
+
+        profile.setIdProofVerificationStatus(approved
+                ? RecruiterProfile.VerificationStatus.APPROVED
+                : RecruiterProfile.VerificationStatus.REJECTED);
+        profile.setIdProofVerified(approved);
+        profile.setIdProofVerificationReason(review.getReason().trim());
+        recruiterProfileRepository.save(profile);
+        sendRecruiterVerificationEmail(profile, "ID_PROOF", approved);
+    }
+
+    private void sendRecruiterVerificationEmail(
+            RecruiterProfile profile, String documentType, boolean approved) {
+        User recruiter = profile.getUser();
+        if (recruiter != null && recruiter.getEmail() != null) {
+            emailService.sendRecruiterVerificationDecisionEmail(recruiter.getEmail(), documentType, approved);
+        } else {
+            log.warn("Cannot send {} decision email for recruiter {}: email is unavailable",
+                    documentType, profile.getId());
         }
     }
 

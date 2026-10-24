@@ -11,6 +11,8 @@ public class UpdateRecruiterProfileDto {
     private String companyWebsite;
     private String companyLogoUrl;
     private String profilePhotoUrl;
+    private String faceVerificationUrl;
+    private String idProofUrl;
     private String industry;
     private String companySize;
 

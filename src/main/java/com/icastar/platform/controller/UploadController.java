@@ -124,8 +124,16 @@ public class UploadController {
                 String fileUrl = presignedUrlResponse.getFileUrl();
                 switch (uploadType.toUpperCase()) {
                     case "FACE_VERIFICATION":
-                        artistProfileService.updateFaceVerificationUrl(user.getId(), fileUrl);
-                        log.info("Saved face verification URL for user: {}", email);
+                        if (User.UserRole.RECRUITER.equals(user.getRole())) {
+                            recruiterDashboardService.updateRecruiterFaceVerificationUrl(user.getId(), fileUrl);
+                            log.info("Saved face verification URL for recruiter: {}", email);
+                        } else if (User.UserRole.ARTIST.equals(user.getRole())) {
+                            artistProfileService.updateFaceVerificationUrl(user.getId(), fileUrl);
+                            log.info("Saved face verification URL for artist: {}", email);
+                        } else {
+                            return ResponseEntity.status(403).body(Map.of(
+                                    "success", false, "message", "Only artists and recruiters can submit face verification"));
+                        }
                         break;
                     case "PROFILE_PHOTO":
                     case "ARTIST_PROFILE":
@@ -145,8 +153,16 @@ public class UploadController {
                         log.info("Saved cover photo URL for user: {}", email);
                         break;
                     case "ID_PROOF":
-                        artistProfileService.updateIdProofUrl(user.getId(), fileUrl);
-                        log.info("Saved ID proof URL for user: {}", email);
+                        if (User.UserRole.RECRUITER.equals(user.getRole())) {
+                            recruiterDashboardService.updateRecruiterIdProofUrl(user.getId(), fileUrl);
+                            log.info("Saved ID proof URL for recruiter: {}", email);
+                        } else if (User.UserRole.ARTIST.equals(user.getRole())) {
+                            artistProfileService.updateIdProofUrl(user.getId(), fileUrl);
+                            log.info("Saved ID proof URL for artist: {}", email);
+                        } else {
+                            return ResponseEntity.status(403).body(Map.of(
+                                    "success", false, "message", "Only artists and recruiters can submit ID proof"));
+                        }
                         break;
                     case "DANCE_SHOWREEL":
                         artistProfileService.updateDanceShowreelUrl(user.getId(), fileUrl);
@@ -326,7 +342,14 @@ public class UploadController {
             log.info("Uploading ID proof for user: {}", email);
 
             String fileUrl = s3Service.uploadFile(file, "ID_PROOF", user.getId());
-            artistProfileService.updateIdProofUrl(user.getId(), fileUrl);
+            if (User.UserRole.RECRUITER.equals(user.getRole())) {
+                recruiterDashboardService.updateRecruiterIdProofUrl(user.getId(), fileUrl);
+            } else if (User.UserRole.ARTIST.equals(user.getRole())) {
+                artistProfileService.updateIdProofUrl(user.getId(), fileUrl);
+            } else {
+                return ResponseEntity.status(403).body(Map.of(
+                        "success", false, "message", "Only artists and recruiters can submit ID proof"));
+            }
 
             return ResponseEntity.ok(Map.of(
                     "success", true,
@@ -419,7 +442,14 @@ public class UploadController {
             String savedUrl;
             switch (uploadType.toUpperCase()) {
                 case "FACE_VERIFICATION":
-                    savedUrl = artistProfileService.updateFaceVerificationUrl(user.getId(), fileUrl);
+                    if (User.UserRole.RECRUITER.equals(user.getRole())) {
+                        savedUrl = recruiterDashboardService.updateRecruiterFaceVerificationUrl(user.getId(), fileUrl);
+                    } else if (User.UserRole.ARTIST.equals(user.getRole())) {
+                        savedUrl = artistProfileService.updateFaceVerificationUrl(user.getId(), fileUrl);
+                    } else {
+                        return ResponseEntity.status(403).body(Map.of(
+                                "success", false, "message", "Only artists and recruiters can submit face verification"));
+                    }
                     break;
                 case "PROFILE_PHOTO":
                 case "ARTIST_PROFILE":
@@ -434,7 +464,14 @@ public class UploadController {
                     savedUrl = artistProfileService.updateCoverPhotoUrl(user.getId(), fileUrl);
                     break;
                 case "ID_PROOF":
-                    savedUrl = artistProfileService.updateIdProofUrl(user.getId(), fileUrl);
+                    if (User.UserRole.RECRUITER.equals(user.getRole())) {
+                        savedUrl = recruiterDashboardService.updateRecruiterIdProofUrl(user.getId(), fileUrl);
+                    } else if (User.UserRole.ARTIST.equals(user.getRole())) {
+                        savedUrl = artistProfileService.updateIdProofUrl(user.getId(), fileUrl);
+                    } else {
+                        return ResponseEntity.status(403).body(Map.of(
+                                "success", false, "message", "Only artists and recruiters can submit ID proof"));
+                    }
                     break;
                 case "DANCE_SHOWREEL":
                     savedUrl = artistProfileService.updateDanceShowreelUrl(user.getId(), fileUrl);

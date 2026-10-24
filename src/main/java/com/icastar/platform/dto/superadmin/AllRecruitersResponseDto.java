@@ -35,6 +35,10 @@ public class AllRecruitersResponseDto {
 
     // Verification Status
     private Boolean isVerified;
+    private String faceVerificationStatus;
+    private Boolean isFaceVerified;
+    private String idProofVerificationStatus;
+    private Boolean idProofVerified;
     private Boolean isEmailVerified;
     private Boolean isMobileVerified;
     private Boolean isDocumentVerified;

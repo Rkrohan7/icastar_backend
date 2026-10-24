@@ -16,6 +16,14 @@ public interface RecruiterProfileRepository extends JpaRepository<RecruiterProfi
 
     Optional<RecruiterProfile> findByUserId(Long userId);
 
+    @Query("SELECT rp FROM RecruiterProfile rp WHERE " +
+            "rp.faceVerificationStatus = :pendingStatus OR rp.faceVerificationUrl IS NOT NULL " +
+            "OR rp.isFaceVerified = true OR rp.idProofVerificationStatus = :pendingStatus " +
+            "OR rp.idProofUrl IS NOT NULL OR rp.idProofVerified = true " +
+            "ORDER BY rp.updatedAt DESC")
+    List<RecruiterProfile> findVerificationQueue(
+            @Param("pendingStatus") RecruiterProfile.VerificationStatus pendingStatus);
+
     List<RecruiterProfile> findByIsVerifiedCompany(Boolean isVerifiedCompany);
 
     List<RecruiterProfile> findByCompanyNameContainingIgnoreCase(String companyName);

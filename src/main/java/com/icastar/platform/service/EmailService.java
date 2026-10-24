@@ -101,6 +101,24 @@ public class EmailService {
     }
 
     @Async
+    public void sendRecruiterVerificationDecisionEmail(String toEmail, String documentType, boolean approved) {
+        String documentLabel = "FACE_VERIFICATION".equals(documentType) ? "face verification" : "ID proof verification";
+        String subject = approved
+                ? "Your " + documentLabel + " has been approved"
+                : "Your " + documentLabel + " was rejected";
+        String body = approved
+                ? "Hello,<br><br>Your " + documentLabel + " has been approved by the admin team."
+                    + "<br><br>Thank you,<br>iCastar Team"
+                : "Hello,<br><br>Your " + documentLabel + " submission was rejected by the admin team."
+                    + ("FACE_VERIFICATION".equals(documentType)
+                        ? "<br>Please re-upload a clear face image and try again."
+                        : "<br>Please re-upload a clear and valid ID proof document and try again.")
+                    + "<br><br>Thank you,<br>iCastar Team";
+
+        sendHtmlEmail(toEmail, subject, body);
+    }
+
+    @Async
     @Transactional
     public void sendOtpEmail(String toEmail, String otp) {
         CommunicationLog logEntry = null;

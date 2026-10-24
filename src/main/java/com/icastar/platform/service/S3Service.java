@@ -75,6 +75,16 @@ public class S3Service {
                 ArtistProfile artistProfile = artistProfileRepository.findByUserId(user.getId())
                         .orElseThrow(() -> new RuntimeException("Artist profile not found"));
                 s3Key = buildArtistProfilePhotoKey(artistProfile.getId(), request.getPhotoType(), fileExtension);
+            } else if ((User.UserRole.ARTIST.equals(user.getRole())
+                    || User.UserRole.RECRUITER.equals(user.getRole()))
+                    && "FACE_VERIFICATION".equalsIgnoreCase(request.getUploadType())) {
+                String profileType = User.UserRole.RECRUITER.equals(user.getRole()) ? "recruiter" : "artist";
+                s3Key = profileType + "/face-verification/" + user.getId() + "/" + uniqueFileName;
+            } else if ((User.UserRole.ARTIST.equals(user.getRole())
+                    || User.UserRole.RECRUITER.equals(user.getRole()))
+                    && "ID_PROOF".equalsIgnoreCase(request.getUploadType())) {
+                String profileType = User.UserRole.RECRUITER.equals(user.getRole()) ? "recruiter" : "artist";
+                s3Key = profileType + "/id-proof/" + user.getId() + "/" + uniqueFileName;
             } else {
                 s3Key = buildS3Key(request.getUploadType(), user.getId(), uniqueFileName);
             }

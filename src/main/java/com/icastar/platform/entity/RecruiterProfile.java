@@ -48,6 +48,34 @@ public class RecruiterProfile extends BaseEntity {
     @Column(name = "profile_photo_url")
     private String profilePhotoUrl;
 
+    @JsonIgnore
+    @Column(name = "face_verification_url", length = 2048)
+    private String faceVerificationUrl;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "face_verification_status", nullable = false, length = 32)
+    private VerificationStatus faceVerificationStatus = VerificationStatus.NOT_SUBMITTED;
+
+    @Column(name = "is_face_verified", nullable = false)
+    private Boolean isFaceVerified = false;
+
+    @Column(name = "face_verification_reason", columnDefinition = "TEXT")
+    private String faceVerificationReason;
+
+    @JsonIgnore
+    @Column(name = "id_proof_url", length = 2048)
+    private String idProofUrl;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "id_proof_verification_status", nullable = false, length = 32)
+    private VerificationStatus idProofVerificationStatus = VerificationStatus.NOT_SUBMITTED;
+
+    @Column(name = "id_proof_verified", nullable = false)
+    private Boolean idProofVerified = false;
+
+    @Column(name = "id_proof_verification_reason", columnDefinition = "TEXT")
+    private String idProofVerificationReason;
+
     @Column(name = "industry")
     private String industry;
 
@@ -81,6 +109,21 @@ public class RecruiterProfile extends BaseEntity {
     @OneToMany(mappedBy = "recruiterProfile", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @JsonIgnore
     private List<RecruiterProfileField> dynamicFields;
+
+    public boolean hasApprovedFaceAndIdProof() {
+        return faceVerificationStatus == VerificationStatus.APPROVED
+                && Boolean.TRUE.equals(isFaceVerified)
+                && faceVerificationUrl != null
+                && !faceVerificationUrl.isBlank()
+                && idProofVerificationStatus == VerificationStatus.APPROVED
+                && Boolean.TRUE.equals(idProofVerified)
+                && idProofUrl != null
+                && !idProofUrl.isBlank();
+    }
+
+    public enum VerificationStatus {
+        NOT_SUBMITTED, PENDING, APPROVED, REJECTED
+    }
 
     // Messages are handled at User level, not RecruiterProfile level
     // @OneToMany(mappedBy = "recruiter", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
