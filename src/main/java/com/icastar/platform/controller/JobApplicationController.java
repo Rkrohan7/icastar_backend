@@ -6,6 +6,7 @@ import com.icastar.platform.dto.job.UpdateJobApplicationDto;
 import com.icastar.platform.entity.JobApplication;
 import com.icastar.platform.entity.ArtistProfile;
 import com.icastar.platform.entity.User;
+import com.icastar.platform.exception.ApplicationEligibilityException;
 import com.icastar.platform.service.JobApplicationService;
 import com.icastar.platform.service.ArtistService;
 import com.icastar.platform.service.UserService;
@@ -107,6 +108,14 @@ public class JobApplicationController {
             response.put("data", applicationDto);
 
             return ResponseEntity.ok(response);
+        } catch (ApplicationEligibilityException e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("errorCode", "APPLICATION_REQUIREMENTS_NOT_MET");
+            response.put("message", e.getMessage());
+            response.put("missingRequirements", e.getMissingRequirements());
+            response.put("completionPercentage", e.getCompletionPercentage());
+            return ResponseEntity.status(403).body(response);
         } catch (Exception e) {
             log.error("Error applying for job", e);
             Map<String, Object> response = new HashMap<>();

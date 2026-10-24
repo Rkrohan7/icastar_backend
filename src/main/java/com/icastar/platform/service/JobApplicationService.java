@@ -7,6 +7,7 @@ import com.icastar.platform.dto.job.UpdateJobApplicationDto;
 import com.icastar.platform.entity.Job;
 import com.icastar.platform.entity.JobApplication;
 import com.icastar.platform.entity.ArtistProfile;
+import com.icastar.platform.exception.ApplicationEligibilityException;
 import com.icastar.platform.repository.JobApplicationRepository;
 import com.icastar.platform.repository.JobRepository;
 import com.icastar.platform.repository.ArtistProfileRepository;
@@ -19,6 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -32,6 +34,7 @@ public class JobApplicationService {
     private final JobRepository jobRepository;
     private final ArtistProfileRepository artistProfileRepository;
     private final JobService jobService;
+    private final ArtistService artistService;
 
     @Transactional(readOnly = true)
     public Optional<JobApplication> findById(Long id) {
@@ -118,6 +121,23 @@ public class JobApplicationService {
         }
         ArtistProfile artist = artistProfileRepository.findById(artistId)
                 .orElseThrow(() -> new RuntimeException("Artist profile not found"));
+
+        int completionPercentage = artistService.calculateProfileCompletionPercentage(artist);
+        List<String> missingRequirements = new ArrayList<>();
+        if (artist.getFaceVerificationStatus() != ArtistProfile.FaceVerificationStatus.APPROVED
+                || !Boolean.TRUE.equals(artist.getIsFaceVerified())) {
+            missingRequirements.add("FACE_VERIFICATION_REQUIRED");
+        }
+        if (artist.getIdProofVerificationStatus() != ArtistProfile.IdProofVerificationStatus.APPROVED
+                || !Boolean.TRUE.equals(artist.getIdProofVerified())) {
+            missingRequirements.add("ID_PROOF_REQUIRED");
+        }
+        if (completionPercentage < 80) {
+            missingRequirements.add("PROFILE_COMPLETION_REQUIRED");
+        }
+        if (!missingRequirements.isEmpty()) {
+            throw new ApplicationEligibilityException(missingRequirements, completionPercentage);
+        }
 
         Job job = jobRepository.findById(createDto.getJobId())
                 .orElseThrow(() -> new RuntimeException("Job not found"));
