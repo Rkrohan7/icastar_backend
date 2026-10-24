@@ -22,6 +22,7 @@ public class SystemConfigDto {
     private Integer landingSuccessfulAuditions;
     private Integer landingSuccessRate;
     private Boolean landingBlogsEnabled;
+    private Boolean incompleteProfilePopupEnabled;
 
     // General Settings
     private String platformName;
@@ -132,7 +133,7 @@ public class SystemConfigDto {
     @AllArgsConstructor
     public static class UpdateConfigRequest {
         private String key;
-        private String value;
+        private Object value;
         private String category;
     }
 }

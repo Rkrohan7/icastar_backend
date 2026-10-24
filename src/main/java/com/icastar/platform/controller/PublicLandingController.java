@@ -71,6 +71,15 @@ public class PublicLandingController {
         }
     }
 
+    @Operation(summary = "Get incomplete profile popup setting", description = "Get popup setting - No authentication required")
+    @GetMapping("/config/profile-completion-popup")
+    public ResponseEntity<Map<String, Object>> getProfileCompletionPopupConfig() {
+        Map<String, Object> data = new HashMap<>();
+        data.put("enabled", systemSettingService.getBooleanValueOrDefault(
+                "incompleteProfilePopupEnabled", false));
+        return ResponseEntity.ok(Map.of("data", data));
+    }
+
     /**
      * Get published blogs for landing page
      * GET /api/public/blogs?size=3

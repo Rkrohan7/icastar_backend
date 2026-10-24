@@ -817,6 +817,8 @@ public class RecruiterDashboardService {
         dto.setFirstName(recruiter.getFirstName());
         dto.setLastName(recruiter.getLastName());
         dto.setIsVerified(recruiterProfile.hasApprovedFaceAndIdProof());
+        dto.setProfileCompletionPercentage(calculateRecruiterProfileCompletionPercentage(
+                recruiter, recruiterProfile));
 
         // === RECRUITER / COMPANY INFO ===
         dto.setId(recruiterProfile.getId());
@@ -851,6 +853,33 @@ public class RecruiterDashboardService {
         }
 
         return dto;
+    }
+
+    private int calculateRecruiterProfileCompletionPercentage(User recruiter, RecruiterProfile profile) {
+        int completedFields = 0;
+        int totalFields = 15;
+
+        if (hasText(recruiter.getFirstName())) completedFields++;
+        if (hasText(recruiter.getLastName())) completedFields++;
+        if (hasText(recruiter.getMobile())) completedFields++;
+        if (hasText(profile.getCompanyName())) completedFields++;
+        if (hasText(profile.getContactPersonName())) completedFields++;
+        if (hasText(profile.getContactPhone())) completedFields++;
+        if (hasText(profile.getDesignation())) completedFields++;
+        if (hasText(profile.getCompanyDescription())) completedFields++;
+        if (hasText(profile.getCompanyWebsite())) completedFields++;
+        if (hasText(profile.getCompanyLogoUrl())) completedFields++;
+        if (hasText(profile.getProfilePhotoUrl())) completedFields++;
+        if (hasText(profile.getIndustry())) completedFields++;
+        if (hasText(profile.getCompanySize())) completedFields++;
+        if (hasText(profile.getLocation())) completedFields++;
+        if (profile.getRecruiterCategory() != null) completedFields++;
+
+        return completedFields * 100 / totalFields;
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.isBlank();
     }
 
     /**

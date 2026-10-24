@@ -29,6 +29,7 @@ public class SystemSettingService {
             "landingSuccessfulAuditions",
             "landingSuccessRate",
             "landingBlogsEnabled",
+            "incompleteProfilePopupEnabled",
             // General settings
             "platformName",
             "platformEmail",

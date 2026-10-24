@@ -586,6 +586,8 @@ public class SuperAdminController {
                 .landingSuccessfulAuditions(landingStats.get("landingSuccessfulAuditions"))
                 .landingSuccessRate(landingStats.get("landingSuccessRate"))
                 .landingBlogsEnabled(systemSettingService.getBooleanValueOrDefault("landingBlogsEnabled", true))
+                .incompleteProfilePopupEnabled(systemSettingService.getBooleanValueOrDefault(
+                        "incompleteProfilePopupEnabled", false))
                 // Other settings (hardcoded defaults, can be extended to read from DB)
                 .platformName(systemSettingService.getValueOrDefault("platformName", "iCastar"))
                 .platformEmail(systemSettingService.getValueOrDefault("platformEmail", "support@icastar.com"))
@@ -617,6 +619,23 @@ public class SuperAdminController {
         log.info("Updating system configuration - key: {}, category: {}", request.getKey(), request.getCategory());
 
         try {
+            if (request.getValue() == null) {
+                Map<String, Object> response = new HashMap<>();
+                response.put("success", false);
+                response.put("message", "Setting value is required");
+                return ResponseEntity.badRequest().body(response);
+            }
+
+            String settingValue = String.valueOf(request.getValue());
+            if ("incompleteProfilePopupEnabled".equals(request.getKey())
+                    && !"true".equalsIgnoreCase(settingValue)
+                    && !"false".equalsIgnoreCase(settingValue)) {
+                Map<String, Object> response = new HashMap<>();
+                response.put("success", false);
+                response.put("message", "incompleteProfilePopupEnabled must be a boolean");
+                return ResponseEntity.badRequest().body(response);
+            }
+
             // Validate key is allowed
             if (!systemSettingService.isKeyAllowed(request.getKey())) {
                 Map<String, Object> response = new HashMap<>();
@@ -632,8 +651,10 @@ public class SuperAdminController {
             // Upsert the setting
             systemSettingService.upsertSetting(
                     request.getKey(),
-                    request.getValue(),
-                    request.getCategory(),
+                    settingValue,
+                    "incompleteProfilePopupEnabled".equals(request.getKey())
+                            ? com.icastar.platform.entity.SystemSetting.CATEGORY_PLATFORM
+                            : request.getCategory(),
                     admin.getId()
             );
 

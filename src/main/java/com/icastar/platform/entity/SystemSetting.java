@@ -55,6 +55,7 @@ public class SystemSetting {
 
     // Category constants
     public static final String CATEGORY_LANDING_STATS = "LANDING_STATS";
+    public static final String CATEGORY_PLATFORM = "PLATFORM";
     public static final String CATEGORY_GENERAL = "GENERAL";
     public static final String CATEGORY_REGISTRATION = "REGISTRATION";
     public static final String CATEGORY_JOB = "JOB";
