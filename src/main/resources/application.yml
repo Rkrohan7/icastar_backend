@@ -111,6 +111,11 @@ icastar:
   otp:
     expiration-minutes: 5
     length: 6
+
+msg91:
+  auth-key: ${MSG91_AUTH_KEY:409317AcM0iu8DW6adf4851P1}
+  template-id: ${MSG91_OTP_TEMPLATE_ID:6adf44957fbb3f5443090243}
+  otp-url: ${MSG91_OTP_URL:https://control.msg91.com/api/v5/otp}
   
   file:
     upload-dir: ${FILE_UPLOAD_DIR:uploads/}

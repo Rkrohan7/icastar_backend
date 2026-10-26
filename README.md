@@ -178,9 +178,17 @@ The platform supports multiple artist types with their specific fields. The `Dan
 - `GET /api/public/artist-types/{id}/fields` - Get artist type fields
 
 ### Authentication
-- `POST /api/auth/otp/send` - Send OTP
-- `POST /api/auth/otp/verify` - Verify OTP
-- `POST /api/auth/register` - User registration
+- `POST /api/auth/register/verification/request` - Start signup and send email/mobile OTPs
+- `POST /api/auth/register/verification/verify` - Verify both signup OTPs and create the account
+- `POST /api/auth/register/verification/resend` - Resend signup OTP by channel
+- `POST /api/auth/login/otp/request` - Check credentials and send email login OTP
+- `POST /api/auth/login/otp/verify` - Verify login OTP and receive a JWT
+- `POST /api/auth/login/otp/resend` - Resend login OTP
+
+Legacy `/api/auth/login`, `/api/auth/register`, `/api/auth/otp/send`, and
+`/api/auth/otp/verify` no longer issue credentials or create accounts; use the
+verification flow above. Configure `MSG91_AUTH_KEY` and `MSG91_OTP_TEMPLATE_ID`
+on the backend to enable signup SMS OTP delivery.
 
 ### Artist Management
 - `GET /api/artists/profile` - Get artist profile

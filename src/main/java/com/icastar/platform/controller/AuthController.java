@@ -3,21 +3,20 @@ package com.icastar.platform.controller;
 import com.icastar.platform.dto.auth.*;
 import com.icastar.platform.entity.ArtistProfile;
 import com.icastar.platform.entity.ArtistProfileArtistType;
-import com.icastar.platform.entity.ArtistType;
 import com.icastar.platform.entity.Otp;
 import com.icastar.platform.entity.PasswordResetToken;
 import com.icastar.platform.entity.RecruiterProfile;
 import com.icastar.platform.entity.User;
+import com.icastar.platform.exception.AuthFlowException;
 import com.icastar.platform.repository.ArtistProfileRepository;
 import com.icastar.platform.repository.ArtistProfileArtistTypeRepository;
-import com.icastar.platform.repository.ArtistTypeRepository;
 import com.icastar.platform.repository.PasswordResetTokenRepository;
 import com.icastar.platform.repository.RecruiterProfileRepository;
 import com.icastar.platform.repository.UserRepository;
 import com.icastar.platform.security.JwtTokenProvider;
 import com.icastar.platform.service.EmailService;
+import com.icastar.platform.service.AuthVerificationService;
 import com.icastar.platform.service.OtpService;
-import com.icastar.platform.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -32,9 +31,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
@@ -52,11 +51,8 @@ import java.util.UUID;
 @Tag(name = "Authentication", description = "User authentication and authorization endpoints")
 public class AuthController {
 
-    @Value("${icastar.legal.terms-version:2025-12}")
-    private String termsVersion;
-
     private final OtpService otpService;
-    private final UserService userService;
+    private final AuthVerificationService authVerificationService;
     private final EmailService emailService;
     private final JwtTokenProvider jwtTokenProvider;
     private final PasswordEncoder passwordEncoder;
@@ -64,7 +60,6 @@ public class AuthController {
     private final RecruiterProfileRepository recruiterProfileRepository;
     private final ArtistProfileRepository artistProfileRepository;
     private final ArtistProfileArtistTypeRepository artistProfileArtistTypeRepository;
-    private final ArtistTypeRepository artistTypeRepository;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
 
 
@@ -103,31 +98,122 @@ public class AuthController {
     public ResponseEntity<Map<String, Object>> sendOtp(
             @Parameter(description = "OTP request details", required = true)
             @Valid @RequestBody OtpRequestDto request) {
+        return legacyAuthFlowDisabled();
+    }
+
+    @PostMapping("/register/verification/request")
+    public ResponseEntity<Map<String, Object>> requestRegistrationVerification(
+            @Valid @RequestBody EmailRegisterRequestDto request) {
         try {
-            // Check if user exists for login OTP
-            User existingUser = userRepository.findByEmailOrMobile(request.getMobile(), request.getMobile()).orElse(null);
-            
-            if (existingUser != null) {
-                // User exists - send login OTP
-                otpService.sendOtp(request.getMobile(), existingUser.getEmail(), Otp.OtpType.LOGIN);
-            } else {
-                // User doesn't exist - send registration OTP
-                otpService.sendOtp(request.getMobile(), null, Otp.OtpType.REGISTRATION);
-            }
-
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", true);
-            response.put("message", "OTP sent successfully");
-            response.put("data", Map.of("mobile", request.getMobile()));
-
-            return ResponseEntity.ok(response);
+            String challengeId = authVerificationService.requestRegistration(request);
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "data", Map.of("challengeId", challengeId)));
+        } catch (AuthFlowException e) {
+            return authFlowError(e);
         } catch (Exception e) {
-            log.error("Error sending OTP", e);
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", false);
-            response.put("message", "Failed to send OTP");
-            response.put("error", e.getMessage());
-            return ResponseEntity.badRequest().body(response);
+            log.error("Failed to start registration verification", e);
+            return serviceUnavailable("Unable to send verification codes. Please try again.");
+        }
+    }
+
+    @PostMapping("/register/verification/verify")
+    public ResponseEntity<Map<String, Object>> verifyRegistration(
+            @Valid @RequestBody com.icastar.platform.dto.auth.AuthVerificationDtos.RegistrationVerifyRequest request) {
+        try {
+            User user = authVerificationService.verifyRegistration(
+                    request.getChallengeId(), request.getEmailOtp(), request.getMobileOtp()).orElse(null);
+            if (user == null) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "success", false,
+                        "message", "Invalid verification code or maximum attempts reached."));
+            }
+            Map<String, Object> data = new HashMap<>();
+            data.put("id", user.getId());
+            data.put("email", user.getEmail());
+            data.put("mobile", user.getMobile());
+            data.put("role", user.getRole());
+            data.put("status", user.getStatus());
+            data.put("isVerified", user.getIsVerified());
+            data.put("emailVerified", user.getEmailVerified());
+            data.put("mobileVerified", user.getMobileVerified());
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", "Registration completed successfully.",
+                    "data", data));
+        } catch (AuthFlowException e) {
+            return authFlowError(e);
+        } catch (Exception e) {
+            log.error("Failed to verify registration", e);
+            return serviceUnavailable("Unable to complete registration. Please try again.");
+        }
+    }
+
+    @PostMapping("/register/verification/resend")
+    public ResponseEntity<Map<String, Object>> resendRegistrationVerification(
+            @Valid @RequestBody com.icastar.platform.dto.auth.AuthVerificationDtos.RegistrationResendRequest request) {
+        try {
+            authVerificationService.resendRegistration(request.getChallengeId(), request.getChannel());
+            return ResponseEntity.ok(Map.of("success", true, "message", "Verification code resent."));
+        } catch (AuthFlowException e) {
+            return authFlowError(e);
+        } catch (Exception e) {
+            log.error("Failed to resend registration verification code", e);
+            return serviceUnavailable("Unable to resend verification code. Please try again.");
+        }
+    }
+
+    @PostMapping("/login/otp/request")
+    public ResponseEntity<Map<String, Object>> requestLoginOtp(
+            @Valid @RequestBody com.icastar.platform.dto.auth.AuthVerificationDtos.LoginOtpRequest request) {
+        try {
+            String challengeId = authVerificationService.requestLogin(request.getEmail(), request.getPassword());
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "data", Map.of("challengeId", challengeId)));
+        } catch (AuthFlowException e) {
+            return authFlowError(e);
+        } catch (Exception e) {
+            log.error("Failed to start login OTP verification", e);
+            return serviceUnavailable("Unable to send login verification code. Please try again.");
+        }
+    }
+
+    @PostMapping("/login/otp/verify")
+    public ResponseEntity<Map<String, Object>> verifyLoginOtp(
+            @Valid @RequestBody com.icastar.platform.dto.auth.AuthVerificationDtos.LoginVerifyRequest request) {
+        try {
+            User user = authVerificationService.verifyLogin(request.getChallengeId(), request.getOtp()).orElse(null);
+            if (user == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of(
+                        "success", false,
+                        "message", "Invalid verification code or maximum attempts reached."));
+            }
+            String token = jwtTokenProvider.generateTokenFromUsername(user.getEmail());
+            AuthResponseDto authResponse = new AuthResponseDto(token, user);
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", "Login successful",
+                    "data", authResponse));
+        } catch (AuthFlowException e) {
+            return authFlowError(e);
+        } catch (Exception e) {
+            log.error("Failed to verify login OTP", e);
+            return serviceUnavailable("Unable to complete login. Please try again.");
+        }
+    }
+
+    @PostMapping("/login/otp/resend")
+    public ResponseEntity<Map<String, Object>> resendLoginOtp(
+            @Valid @RequestBody com.icastar.platform.dto.auth.AuthVerificationDtos.LoginResendRequest request) {
+        try {
+            authVerificationService.resendLogin(request.getChallengeId());
+            return ResponseEntity.ok(Map.of("success", true, "message", "Login verification code resent."));
+        } catch (AuthFlowException e) {
+            return authFlowError(e);
+        } catch (Exception e) {
+            log.error("Failed to resend login OTP", e);
+            return serviceUnavailable("Unable to resend login verification code. Please try again.");
         }
     }
 
@@ -252,65 +338,7 @@ public class AuthController {
 
     @PostMapping("/otp/verify")
     public ResponseEntity<Map<String, Object>> verifyOtp(@Valid @RequestBody OtpVerificationDto request) {
-        try {
-            // Try login OTP first
-            boolean isLoginOtp = otpService.verifyOtp(request.getMobile(), null, request.getOtp(), Otp.OtpType.LOGIN);
-            
-            if (isLoginOtp) {
-                // User login
-                User user = userRepository.findByEmailOrMobile(request.getMobile(), request.getMobile())
-                        .orElseThrow(() -> new RuntimeException("User not found"));
-
-                // Check if user is active
-                if (user.getStatus() != User.UserStatus.ACTIVE) {
-                    Map<String, Object> response = new HashMap<>();
-                    response.put("success", false);
-                    response.put("message", "Account is not active. Please contact support.");
-                    return ResponseEntity.badRequest().body(response);
-                }
-
-                // Update last login
-                user.setLastLogin(LocalDateTime.now());
-                user.setFailedLoginAttempts(0);
-                user.setAccountLockedUntil(null);
-                userRepository.save(user);
-
-                String token = jwtTokenProvider.generateTokenFromUsername(user.getEmail());
-                AuthResponseDto authResponse = new AuthResponseDto(token, user);
-
-                Map<String, Object> response = new HashMap<>();
-                response.put("success", true);
-                response.put("message", "Login successful");
-                response.put("data", authResponse);
-
-                return ResponseEntity.ok(response);
-            }
-
-            // Try registration OTP
-            boolean isRegistrationOtp = otpService.verifyOtp(request.getMobile(), null, request.getOtp(), Otp.OtpType.REGISTRATION);
-            
-            if (isRegistrationOtp) {
-                Map<String, Object> response = new HashMap<>();
-                response.put("success", true);
-                response.put("message", "OTP verified successfully. Please complete registration.");
-                response.put("data", Map.of("mobile", request.getMobile(), "verified", true));
-
-                return ResponseEntity.ok(response);
-            }
-
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", false);
-            response.put("message", "Invalid OTP");
-            return ResponseEntity.badRequest().body(response);
-
-        } catch (Exception e) {
-            log.error("Error verifying OTP", e);
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", false);
-            response.put("message", "Failed to verify OTP");
-            response.put("error", e.getMessage());
-            return ResponseEntity.badRequest().body(response);
-        }
+        return legacyAuthFlowDisabled();
     }
 
     @PostMapping("/forgot-password")
@@ -567,157 +595,32 @@ public class AuthController {
             """.formatted(firstName != null ? firstName : "User", resetLink);
     }
 
-    // Email-based authentication endpoints (without OTP verification)
-
     @PostMapping("/login")
     public ResponseEntity<Map<String, Object>> emailLogin(@Valid @RequestBody EmailLoginRequestDto request) {
-        try {
-            // Find user by email
-            User user = userRepository.findByEmail(request.getEmail())
-                    .orElseThrow(() -> new RuntimeException("Invalid email or password"));
-
-            // Check if user is active
-            if (user.getStatus() != User.UserStatus.ACTIVE) {
-                Map<String, Object> response = new HashMap<>();
-                response.put("success", false);
-                response.put("message", "Account is not active. Please contact support.");
-                return ResponseEntity.badRequest().body(response);
-            }
-
-            // Check if account is locked
-            if (user.getAccountLockedUntil() != null && user.getAccountLockedUntil().isAfter(LocalDateTime.now())) {
-                Map<String, Object> response = new HashMap<>();
-                response.put("success", false);
-                response.put("message", "Account is temporarily locked. Please try again later.");
-                return ResponseEntity.badRequest().body(response);
-            }
-
-            // Verify password
-            if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-                // Increment failed login attempts
-                user.setFailedLoginAttempts(user.getFailedLoginAttempts() + 1);
-                
-                // Lock account after 5 failed attempts for 30 minutes
-                if (user.getFailedLoginAttempts() >= 5) {
-                    user.setAccountLockedUntil(LocalDateTime.now().plusMinutes(30));
-                }
-                userRepository.save(user);
-
-                Map<String, Object> response = new HashMap<>();
-                response.put("success", false);
-                response.put("message", "Invalid email or password");
-                return ResponseEntity.badRequest().body(response);
-            }
-
-            // Reset failed login attempts and update last login
-            user.setFailedLoginAttempts(0);
-            user.setAccountLockedUntil(null);
-            user.setLastLogin(LocalDateTime.now());
-            userRepository.save(user);
-
-            // Generate JWT token
-            String token = jwtTokenProvider.generateTokenFromUsername(user.getEmail());
-            AuthResponseDto authResponse = new AuthResponseDto(token, user);
-
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", true);
-            response.put("message", "Login successful");
-            response.put("data", authResponse);
-
-            return ResponseEntity.ok(response);
-
-        } catch (Exception e) {
-            log.error("Error during email login", e);
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", false);
-            response.put("message", "Login failed");
-            response.put("error", e.getMessage());
-            return ResponseEntity.badRequest().body(response);
-        }
+        return legacyAuthFlowDisabled();
     }
 
     @PostMapping("/register")
     public ResponseEntity<Map<String, Object>> emailRegister(@Valid @RequestBody EmailRegisterRequestDto request) {
-        try {
-            // Check if user already exists
-            if (userRepository.findByEmailOrMobile(request.getEmail(), request.getMobile()).isPresent()) {
-                Map<String, Object> response = new HashMap<>();
-                response.put("success", false);
-                response.put("message", "User already exists with this email or mobile");
-                return ResponseEntity.badRequest().body(response);
-            }
+        return legacyAuthFlowDisabled();
+    }
 
-            // Create user
-            User user = new User();
-            user.setEmail(request.getEmail());
-            user.setMobile(request.getMobile());
-            user.setPassword(passwordEncoder.encode(request.getPassword()));
-            user.setRole(request.getUserRole());
-            user.setStatus(User.UserStatus.ACTIVE);
-            user.setIsVerified(true); // Auto-verify for email registration
-            user.setFailedLoginAttempts(0);
-            user.setFirstName(request.getFirstName());
-            user.setLastName(request.getLastName());
+    private ResponseEntity<Map<String, Object>> legacyAuthFlowDisabled() {
+        return ResponseEntity.status(HttpStatus.GONE).body(Map.of(
+                "success", false,
+                "errorCode", "OTP_VERIFICATION_REQUIRED",
+                "message", "Use the OTP verification request and verify endpoints."));
+    }
 
-            // Record Terms & Conditions acceptance
-            user.setTermsAcceptedAt(LocalDateTime.now());
-            user.setTermsVersion(termsVersion);
+    private ResponseEntity<Map<String, Object>> authFlowError(AuthFlowException exception) {
+        return ResponseEntity.status(exception.getStatus()).body(Map.of(
+                "success", false,
+                "message", exception.getMessage()));
+    }
 
-            User savedUser = userRepository.save(user);
-
-           if(User.UserRole.RECRUITER == request.getUserRole()){
-               RecruiterProfile recruiterProfile= new RecruiterProfile();
-               recruiterProfile.setUser(user);
-               recruiterProfile.setIsVerifiedCompany(Boolean.FALSE);
-               recruiterProfile.setCompanyName("");
-               recruiterProfile.setContactPersonName(request.getFirstName() + " " + request.getLastName());
-               recruiterProfileRepository.save(recruiterProfile);
-           } else if(User.UserRole.ARTIST == request.getUserRole()){
-               // Get default artist type (OTHER) for initial profile creation
-               ArtistType defaultArtistType = artistTypeRepository.findByName("OTHER")
-                       .orElseGet(() -> artistTypeRepository.findAll().stream().findFirst()
-                               .orElseThrow(() -> new RuntimeException("No artist types found in database")));
-
-               ArtistProfile artistProfile = new ArtistProfile();
-               artistProfile.setUser(savedUser);
-               artistProfile.setArtistType(defaultArtistType);
-               artistProfile.setFirstName(request.getFirstName());
-               artistProfile.setLastName(request.getLastName());
-               artistProfile.setIsVerifiedBadge(false);
-               artistProfile.setIsProfileComplete(false);
-               artistProfile.setTotalApplications(0);
-               artistProfile.setSuccessfulHires(0);
-               artistProfileRepository.save(artistProfile);
-           }
-
-            // Email sending disabled temporarily
-            // try {
-            //     emailService.sendWelcomeEmail(savedUser.getEmail(), savedUser.getEmail());
-            // } catch (Exception e) {
-            //     log.warn("Failed to send welcome email: {}", e.getMessage());
-            // }
-
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", true);
-            response.put("message", "User registered successfully");
-            response.put("data", Map.of(
-                "id", savedUser.getId(),
-                "email", savedUser.getEmail(),
-                "mobile", savedUser.getMobile(),
-                "role", savedUser.getRole(),
-                "status", savedUser.getStatus(),
-                "isVerified", savedUser.getIsVerified()
-            ));
-
-            return ResponseEntity.ok(response);
-
-        } catch (Exception e) {
-            log.error("Error during email registration", e);
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", false);
-            response.put("message", "Registration failed");
-            response.put("error", e.getMessage());
-            return ResponseEntity.badRequest().body(response);
-        }
+    private ResponseEntity<Map<String, Object>> serviceUnavailable(String message) {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(Map.of(
+                "success", false,
+                "message", message));
     }
 }

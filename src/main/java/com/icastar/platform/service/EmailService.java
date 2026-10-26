@@ -26,6 +26,9 @@ public class EmailService {
     @Value("${spring.mail.username}")
     private String fromEmail;
 
+    @Value("${icastar.otp.expiration-minutes:5}")
+    private int otpExpirationMinutes;
+
     /**
      * Send HTML email
      */
@@ -124,20 +127,20 @@ public class EmailService {
         CommunicationLog logEntry = null;
         try {
             // Create communication log
-            String messageText = "Your OTP for iCastar verification is: " + otp + 
-                               "\n\nThis OTP is valid for 5 minutes." +
-                               "\n\nIf you didn't request this OTP, please ignore this email." +
-                               "\n\nBest regards,\nThe iCastar Team";
+            String messageText = "Your OTP for iCastar verification is: " + otp +
+                    "\n\nThis OTP is valid for 5 minutes." +
+                    "\n\nIf you didn't request this OTP, please ignore this email." +
+                    "\n\nBest regards,\nThe iCastar Team";
             
             logEntry = communicationLogService.createLog(
                 CommunicationLog.CommunicationType.EMAIL,
                 toEmail,
                 null,
                 "iCastar - OTP Verification",
-                messageText,
+                "OTP verification email sent.",
                 "OTP_VERIFICATION",
                 null,
-                "{\"otp\":\"" + otp + "\",\"type\":\"verification\"}"
+                "{\"type\":\"verification\"}"
             );
 
             SimpleMailMessage message = new SimpleMailMessage();
@@ -158,6 +161,38 @@ public class EmailService {
                 communicationLogService.markAsFailed(logEntry.getId(), e.getMessage());
             }
             // In production, you might want to throw an exception or handle this differently
+        }
+    }
+
+    @Transactional
+    public void sendAuthenticationOtpEmail(String toEmail, String otp) {
+        CommunicationLog logEntry = null;
+        try {
+            logEntry = communicationLogService.createLog(
+                    CommunicationLog.CommunicationType.EMAIL,
+                    toEmail,
+                    null,
+                    "iCastar verification code",
+                    "Authentication verification code sent.",
+                    "AUTHENTICATION_OTP",
+                    null,
+                    "{\"type\":\"authentication_verification\"}");
+
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setFrom(fromEmail);
+            message.setTo(toEmail);
+            message.setSubject("Your iCastar verification code");
+            message.setText("Your iCastar verification code is: " + otp
+                    + "\n\nIt expires in " + otpExpirationMinutes + " minutes."
+                    + "\n\nIf you did not request this code, you can ignore this email.");
+            mailSender.send(message);
+            communicationLogService.markAsSent(logEntry.getId(), null);
+        } catch (Exception e) {
+            log.error("Failed to send authentication OTP email to {}", toEmail, e);
+            if (logEntry != null) {
+                communicationLogService.markAsFailed(logEntry.getId(), "Authentication OTP email delivery failed.");
+            }
+            throw new IllegalStateException("Unable to send email verification code.", e);
         }
     }
 

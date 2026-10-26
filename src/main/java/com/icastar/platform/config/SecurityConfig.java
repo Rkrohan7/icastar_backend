@@ -50,6 +50,8 @@ public class SecurityConfig {
                                 "/auth/register",
                                 "/auth/email/login",
                                 "/auth/login",
+                                "/auth/login/otp/**",
+                                "/auth/register/verification/**",
                                 "/auth/forgot-password",
                                 "/auth/reset-password",
                                 "/auth/verify-reset-token",

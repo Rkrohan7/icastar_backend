@@ -47,6 +47,12 @@ public class User extends BaseEntity {
     @Column(name = "is_verified", nullable = false, columnDefinition = "BOOLEAN DEFAULT false")
     private Boolean isVerified = false;
 
+    @Column(name = "email_verified", nullable = false, columnDefinition = "BOOLEAN DEFAULT false")
+    private Boolean emailVerified = false;
+
+    @Column(name = "mobile_verified", nullable = false, columnDefinition = "BOOLEAN DEFAULT false")
+    private Boolean mobileVerified = false;
+
     @Column(name = "is_onboarding_complete", nullable = false, columnDefinition = "BOOLEAN DEFAULT false")
     private Boolean isOnboardingComplete = false;
 

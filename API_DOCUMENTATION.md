@@ -384,10 +384,10 @@ All APIs return responses in the following format:
 
 ## Authentication
 
-To get a JWT token for testing, use the authentication endpoint:
+To get a JWT token for testing, first request a login OTP, then verify it:
 
 ```bash
-curl -X POST "http://localhost:8080/api/auth/login" \
+curl -X POST "http://localhost:8080/api/auth/login/otp/request" \
   -H "Content-Type: application/json" \
   -d '{
     "email": "user@example.com",
@@ -395,7 +395,18 @@ curl -X POST "http://localhost:8080/api/auth/login" \
   }'
 ```
 
-Replace `<your-jwt-token>` in the curl commands with the actual token received from the login response.
+Use the returned `challengeId` and the OTP sent by email:
+
+```bash
+curl -X POST "http://localhost:8080/api/auth/login/otp/verify" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "challengeId": "<challenge-id>",
+    "otp": "<email-otp>"
+  }'
+```
+
+Replace `<your-jwt-token>` in the curl commands with the token from the verification response.
 
 ---
 
