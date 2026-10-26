@@ -12,6 +12,8 @@ import java.util.Optional;
 public interface RecruiterCategoryRepository extends JpaRepository<RecruiterCategory, Long> {
     
     Optional<RecruiterCategory> findByName(String name);
+
+    Optional<RecruiterCategory> findByDisplayNameIgnoreCase(String displayName);
     
     List<RecruiterCategory> findByIsActiveTrueOrderBySortOrder();
     

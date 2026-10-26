@@ -15,6 +15,7 @@ public class RecruiterProfileDto {
     private String lastName;
     private Boolean isVerified;
     private Integer profileCompletionPercentage;
+    private String recruiterType;
     private String faceVerificationUrl;
     private String faceVerificationStatus;
     private Boolean isFaceVerified;

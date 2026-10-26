@@ -38,6 +38,7 @@ public class RecruiterDashboardService {
 
     private final UserRepository userRepository;
     private final RecruiterProfileRepository recruiterProfileRepository;
+    private final RecruiterCategoryRepository recruiterCategoryRepository;
     private final JobRepository jobRepository;
     private final JobApplicationRepository jobApplicationRepository;
     private final ArtistProfileRepository artistProfileRepository;
@@ -819,6 +820,9 @@ public class RecruiterDashboardService {
         dto.setIsVerified(recruiterProfile.hasApprovedFaceAndIdProof());
         dto.setProfileCompletionPercentage(calculateRecruiterProfileCompletionPercentage(
                 recruiter, recruiterProfile));
+        if (recruiterProfile.getRecruiterCategory() != null) {
+            dto.setRecruiterType(recruiterProfile.getRecruiterCategory().getName());
+        }
 
         // === RECRUITER / COMPANY INFO ===
         dto.setId(recruiterProfile.getId());
@@ -857,23 +861,17 @@ public class RecruiterDashboardService {
 
     private int calculateRecruiterProfileCompletionPercentage(User recruiter, RecruiterProfile profile) {
         int completedFields = 0;
-        int totalFields = 15;
+        int totalFields = 8;
 
-        if (hasText(recruiter.getFirstName())) completedFields++;
-        if (hasText(recruiter.getLastName())) completedFields++;
-        if (hasText(recruiter.getMobile())) completedFields++;
-        if (hasText(profile.getCompanyName())) completedFields++;
-        if (hasText(profile.getContactPersonName())) completedFields++;
-        if (hasText(profile.getContactPhone())) completedFields++;
-        if (hasText(profile.getDesignation())) completedFields++;
-        if (hasText(profile.getCompanyDescription())) completedFields++;
-        if (hasText(profile.getCompanyWebsite())) completedFields++;
-        if (hasText(profile.getCompanyLogoUrl())) completedFields++;
         if (hasText(profile.getProfilePhotoUrl())) completedFields++;
-        if (hasText(profile.getIndustry())) completedFields++;
-        if (hasText(profile.getCompanySize())) completedFields++;
-        if (hasText(profile.getLocation())) completedFields++;
+        if ((hasText(recruiter.getFirstName()) && hasText(recruiter.getLastName()))
+                || hasText(profile.getContactPersonName())) completedFields++;
+        if (hasText(profile.getDesignation())) completedFields++;
+        if (hasText(recruiter.getEmail())) completedFields++;
         if (profile.getRecruiterCategory() != null) completedFields++;
+        if (hasText(profile.getCompanyName())) completedFields++;
+        if (hasText(profile.getCompanyWebsite())) completedFields++;
+        if (hasText(profile.getCompanyDescription())) completedFields++;
 
         return completedFields * 100 / totalFields;
     }
@@ -943,6 +941,23 @@ public class RecruiterDashboardService {
         // Update location
         if (updateDto.getLocation() != null) {
             recruiterProfile.setLocation(updateDto.getLocation());
+        }
+
+        if (updateDto.getRecruiterType() != null) {
+            String recruiterType = updateDto.getRecruiterType().trim();
+            if (recruiterType.isEmpty()) {
+                recruiterProfile.setRecruiterCategory(null);
+            } else {
+                RecruiterCategory category = recruiterCategoryRepository.findByName(recruiterType)
+                        .or(() -> recruiterCategoryRepository.findByDisplayNameIgnoreCase(recruiterType))
+                        .orElseThrow(() -> new RuntimeException(
+                                "Recruiter type '" + recruiterType + "' was not found"));
+                recruiterProfile.setRecruiterCategory(category);
+            }
+        } else if (updateDto.getRecruiterCategoryId() != null) {
+            RecruiterCategory category = recruiterCategoryRepository.findById(updateDto.getRecruiterCategoryId())
+                    .orElseThrow(() -> new RuntimeException("Recruiter category not found"));
+            recruiterProfile.setRecruiterCategory(category);
         }
 
         // Save updated profile

@@ -26,4 +26,5 @@ public class UpdateRecruiterProfileDto {
 
     // Category
     private Long recruiterCategoryId;
+    private String recruiterType;
 }
