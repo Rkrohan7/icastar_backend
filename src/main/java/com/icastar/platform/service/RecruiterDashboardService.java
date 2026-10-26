@@ -820,8 +820,10 @@ public class RecruiterDashboardService {
         dto.setIsVerified(recruiterProfile.hasApprovedFaceAndIdProof());
         dto.setProfileCompletionPercentage(calculateRecruiterProfileCompletionPercentage(
                 recruiter, recruiterProfile));
+        dto.setRecruiterType(recruiterProfile.getRecruiterType());
         if (recruiterProfile.getRecruiterCategory() != null) {
-            dto.setRecruiterType(recruiterProfile.getRecruiterCategory().getName());
+            dto.setRecruiterCategoryId(recruiterProfile.getRecruiterCategory().getId());
+            dto.setRecruiterCategoryName(recruiterProfile.getRecruiterCategory().getName());
         }
 
         // === RECRUITER / COMPANY INFO ===
@@ -850,12 +852,6 @@ public class RecruiterDashboardService {
         dto.setSuccessfulHires(recruiterProfile.getSuccessfulHires());
         dto.setChatCredits(recruiterProfile.getChatCredits());
 
-        // === CATEGORY INFO ===
-        if (recruiterProfile.getRecruiterCategory() != null) {
-            dto.setRecruiterCategoryId(recruiterProfile.getRecruiterCategory().getId());
-            dto.setRecruiterCategoryName(recruiterProfile.getRecruiterCategory().getName());
-        }
-
         return dto;
     }
 
@@ -868,7 +864,7 @@ public class RecruiterDashboardService {
                 || hasText(profile.getContactPersonName())) completedFields++;
         if (hasText(profile.getDesignation())) completedFields++;
         if (hasText(recruiter.getEmail())) completedFields++;
-        if (profile.getRecruiterCategory() != null) completedFields++;
+        if (hasText(profile.getRecruiterType())) completedFields++;
         if (hasText(profile.getCompanyName())) completedFields++;
         if (hasText(profile.getCompanyWebsite())) completedFields++;
         if (hasText(profile.getCompanyDescription())) completedFields++;
@@ -944,17 +940,10 @@ public class RecruiterDashboardService {
         }
 
         if (updateDto.getRecruiterType() != null) {
-            String recruiterType = updateDto.getRecruiterType().trim();
-            if (recruiterType.isEmpty()) {
-                recruiterProfile.setRecruiterCategory(null);
-            } else {
-                RecruiterCategory category = recruiterCategoryRepository.findByName(recruiterType)
-                        .or(() -> recruiterCategoryRepository.findByDisplayNameIgnoreCase(recruiterType))
-                        .orElseThrow(() -> new RuntimeException(
-                                "Recruiter type '" + recruiterType + "' was not found"));
-                recruiterProfile.setRecruiterCategory(category);
-            }
-        } else if (updateDto.getRecruiterCategoryId() != null) {
+            recruiterProfile.setRecruiterType(updateDto.getRecruiterType().trim());
+        }
+
+        if (updateDto.getRecruiterCategoryId() != null) {
             RecruiterCategory category = recruiterCategoryRepository.findById(updateDto.getRecruiterCategoryId())
                     .orElseThrow(() -> new RuntimeException("Recruiter category not found"));
             recruiterProfile.setRecruiterCategory(category);

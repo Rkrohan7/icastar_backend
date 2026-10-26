@@ -48,6 +48,9 @@ public class RecruiterProfile extends BaseEntity {
     @Column(name = "profile_photo_url")
     private String profilePhotoUrl;
 
+    @Column(name = "recruiter_type", length = 100)
+    private String recruiterType;
+
     @JsonIgnore
     @Column(name = "face_verification_url", length = 2048)
     private String faceVerificationUrl;
