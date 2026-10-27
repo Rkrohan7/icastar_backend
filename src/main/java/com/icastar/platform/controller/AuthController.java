@@ -122,7 +122,7 @@ public class AuthController {
             @Valid @RequestBody com.icastar.platform.dto.auth.AuthVerificationDtos.RegistrationVerifyRequest request) {
         try {
             User user = authVerificationService.verifyRegistration(
-                    request.getChallengeId(), request.getEmailOtp(), request.getMobileOtp()).orElse(null);
+                    request.getChallengeId(), request.getEmailOtp()).orElse(null);
             if (user == null) {
                 return ResponseEntity.badRequest().body(Map.of(
                         "success", false,

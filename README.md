@@ -178,9 +178,9 @@ The platform supports multiple artist types with their specific fields. The `Dan
 - `GET /api/public/artist-types/{id}/fields` - Get artist type fields
 
 ### Authentication
-- `POST /api/auth/register/verification/request` - Start signup and send email/mobile OTPs
-- `POST /api/auth/register/verification/verify` - Verify both signup OTPs and create the account
-- `POST /api/auth/register/verification/resend` - Resend signup OTP by channel
+- `POST /api/auth/register/verification/request` - Start signup and send an email OTP
+- `POST /api/auth/register/verification/verify` - Verify the signup email OTP and create the account
+- `POST /api/auth/register/verification/resend` - Resend the signup email OTP (`channel: "email"`)
 - `POST /api/auth/login/otp/request` - Check credentials and send email login OTP
 - `POST /api/auth/login/otp/verify` - Verify login OTP and receive a JWT
 - `POST /api/auth/login/otp/resend` - Resend login OTP
@@ -188,7 +188,7 @@ The platform supports multiple artist types with their specific fields. The `Dan
 Legacy `/api/auth/login`, `/api/auth/register`, `/api/auth/otp/send`, and
 `/api/auth/otp/verify` no longer issue credentials or create accounts; use the
 verification flow above. Configure `MSG91_AUTH_KEY` and `MSG91_OTP_TEMPLATE_ID`
-on the backend to enable signup SMS OTP delivery.
+on the backend only if SMS delivery is needed for other application features.
 
 ### Artist Management
 - `GET /api/artists/profile` - Get artist profile

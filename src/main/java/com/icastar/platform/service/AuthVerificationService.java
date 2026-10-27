@@ -43,7 +43,6 @@ public class AuthVerificationService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
-    private final SmsService smsService;
     private final RecruiterProfileRepository recruiterProfileRepository;
     private final ArtistProfileRepository artistProfileRepository;
     private final ArtistTypeRepository artistTypeRepository;
@@ -82,7 +81,6 @@ public class AuthVerificationService {
 
         enforceRequestRateLimit(email, mobile, AuthVerificationChallenge.Intent.REGISTER);
         String emailOtp = generateOtp();
-        String mobileOtp = generateOtp();
         AuthVerificationChallenge challenge = new AuthVerificationChallenge();
         challenge.setChallengeId(UUID.randomUUID().toString());
         challenge.setIntent(AuthVerificationChallenge.Intent.REGISTER);
@@ -96,7 +94,6 @@ public class AuthVerificationService {
         challenge.setAcceptedTerms(Boolean.TRUE.equals(request.getAcceptedTerms()));
         challenge.setTermsVersion(termsVersion);
         challenge.setEmailOtpHash(passwordEncoder.encode(emailOtp));
-        challenge.setMobileOtpHash(passwordEncoder.encode(mobileOtp));
         challenge.setExpiresAt(LocalDateTime.now().plusMinutes(otpExpirationMinutes));
         challenge.setAttempts(0);
         challenge.setResendCount(0);
@@ -104,7 +101,6 @@ public class AuthVerificationService {
         challengeRepository.save(challenge);
         try {
             emailService.sendAuthenticationOtpEmail(email, emailOtp);
-            smsService.sendAuthenticationOtpSms(mobile, mobileOtp);
         } catch (RuntimeException e) {
             challenge.setConsumedAt(LocalDateTime.now());
             challengeRepository.save(challenge);
@@ -115,7 +111,7 @@ public class AuthVerificationService {
     }
 
     @Transactional
-    public Optional<User> verifyRegistration(String challengeId, String emailOtp, String mobileOtp) {
+    public Optional<User> verifyRegistration(String challengeId, String emailOtp) {
         AuthVerificationChallenge challenge = findUsableChallenge(
                 challengeId, AuthVerificationChallenge.Intent.REGISTER);
         if (!incrementAttemptOrClose(challenge)) {
@@ -124,8 +120,7 @@ public class AuthVerificationService {
         }
 
         boolean emailValid = passwordEncoder.matches(emailOtp, challenge.getEmailOtpHash());
-        boolean mobileValid = passwordEncoder.matches(mobileOtp, challenge.getMobileOtpHash());
-        if (!emailValid || !mobileValid) {
+        if (!emailValid) {
             closeIfAttemptsExhausted(challenge);
             challengeRepository.save(challenge);
             return Optional.empty();
@@ -154,7 +149,7 @@ public class AuthVerificationService {
         user.setAccountStatus(User.AccountStatus.ACTIVE);
         user.setIsVerified(true);
         user.setEmailVerified(true);
-        user.setMobileVerified(true);
+        user.setMobileVerified(false);
         user.setFailedLoginAttempts(0);
         user.setFirstName(challenge.getFirstName());
         user.setLastName(challenge.getLastName());
@@ -245,6 +240,11 @@ public class AuthVerificationService {
 
     @Transactional(noRollbackFor = AuthFlowException.class)
     public void resendRegistration(String challengeId, String channel) {
+        if (!"email".equalsIgnoreCase(channel)) {
+            throw new AuthFlowException(HttpStatus.BAD_REQUEST,
+                    "Registration verification codes can only be sent by email.");
+        }
+
         AuthVerificationChallenge challenge = findUsableChallenge(
                 challengeId, AuthVerificationChallenge.Intent.REGISTER);
         checkResendLimits(challenge);
@@ -252,20 +252,10 @@ public class AuthVerificationService {
         challenge.setResendCount(challenge.getResendCount() + 1);
         challenge.setLastResendAt(LocalDateTime.now());
         challenge.setExpiresAt(LocalDateTime.now().plusMinutes(otpExpirationMinutes));
-        if ("email".equalsIgnoreCase(channel)) {
-            challenge.setEmailOtpHash(passwordEncoder.encode(otp));
-        } else if ("mobile".equalsIgnoreCase(channel)) {
-            challenge.setMobileOtpHash(passwordEncoder.encode(otp));
-        } else {
-            throw new AuthFlowException(HttpStatus.BAD_REQUEST, "Channel must be email or mobile.");
-        }
+        challenge.setEmailOtpHash(passwordEncoder.encode(otp));
         challengeRepository.save(challenge);
         try {
-            if ("email".equalsIgnoreCase(channel)) {
-                emailService.sendAuthenticationOtpEmail(challenge.getEmail(), otp);
-            } else {
-                smsService.sendAuthenticationOtpSms(challenge.getMobile(), otp);
-            }
+            emailService.sendAuthenticationOtpEmail(challenge.getEmail(), otp);
         } catch (RuntimeException e) {
             throw new AuthFlowException(HttpStatus.SERVICE_UNAVAILABLE,
                     "Unable to resend verification code. Please try again.");

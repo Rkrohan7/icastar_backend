@@ -18,8 +18,6 @@ public final class AuthVerificationDtos {
         @NotBlank
         @Size(min = 4, max = 10)
         private String emailOtp;
-        @NotBlank
-        @Size(min = 4, max = 10)
         private String mobileOtp;
     }
 
@@ -28,7 +26,8 @@ public final class AuthVerificationDtos {
         @NotBlank
         private String challengeId;
         @NotBlank
-        @Pattern(regexp = "email|mobile", flags = Pattern.Flag.CASE_INSENSITIVE)
+        @Pattern(regexp = "email", flags = Pattern.Flag.CASE_INSENSITIVE,
+                message = "Registration verification codes can only be sent by email.")
         private String channel;
     }
 
