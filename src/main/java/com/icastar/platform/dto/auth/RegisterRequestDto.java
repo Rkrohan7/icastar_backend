@@ -1,6 +1,7 @@
 package com.icastar.platform.dto.auth;
 
 import com.icastar.platform.entity.User;
+import com.icastar.platform.util.PasswordPolicy;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
@@ -19,7 +20,7 @@ public class RegisterRequestDto {
     private String mobile;
     
     @NotBlank(message = "Password is required")
-    @Size(min = 6, message = "Password must be at least 6 characters")
+    @Pattern(regexp = PasswordPolicy.REGEX, message = PasswordPolicy.MESSAGE)
     private String password;
     
     @NotBlank(message = "Role is required")

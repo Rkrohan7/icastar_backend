@@ -12,6 +12,7 @@ import com.icastar.platform.repository.ArtistTypeRepository;
 import com.icastar.platform.repository.AuthVerificationChallengeRepository;
 import com.icastar.platform.repository.RecruiterProfileRepository;
 import com.icastar.platform.repository.UserRepository;
+import com.icastar.platform.util.PasswordPolicy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -59,6 +60,10 @@ public class AuthVerificationService {
 
     @Transactional(noRollbackFor = AuthFlowException.class)
     public String requestRegistration(EmailRegisterRequestDto request) {
+        if (!PasswordPolicy.isValid(request.getPassword())) {
+            throw new AuthFlowException(HttpStatus.BAD_REQUEST, PasswordPolicy.MESSAGE);
+        }
+
         String email = normalizeEmail(request.getEmail());
         String mobile = normalizeMobile(request.getMobile());
         if (userRepository.findByEmail(email).isPresent() || userRepository.findByMobile(mobile).isPresent()) {
@@ -84,6 +89,7 @@ public class AuthVerificationService {
         challenge.setEmail(email);
         challenge.setMobile(mobile);
         challenge.setPasswordHash(passwordEncoder.encode(request.getPassword()));
+        challenge.setPasswordPolicyValidated(true);
         challenge.setFirstName(request.getFirstName().trim());
         challenge.setLastName(request.getLastName().trim());
         challenge.setRole(role);
@@ -123,6 +129,13 @@ public class AuthVerificationService {
             closeIfAttemptsExhausted(challenge);
             challengeRepository.save(challenge);
             return Optional.empty();
+        }
+
+        if (!challenge.isPasswordPolicyValidated()) {
+            challenge.setConsumedAt(LocalDateTime.now());
+            challengeRepository.save(challenge);
+            throw new AuthFlowException(HttpStatus.BAD_REQUEST,
+                    PasswordPolicy.MESSAGE + " Please start registration again.");
         }
 
         if (userRepository.findByEmail(challenge.getEmail()).isPresent()

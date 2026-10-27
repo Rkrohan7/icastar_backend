@@ -33,6 +33,9 @@ public class AuthVerificationChallenge {
     @Column(name = "password_hash", length = 100)
     private String passwordHash;
 
+    @Column(name = "password_policy_validated", nullable = false)
+    private boolean passwordPolicyValidated;
+
     @Column(name = "first_name", length = 50)
     private String firstName;
 
