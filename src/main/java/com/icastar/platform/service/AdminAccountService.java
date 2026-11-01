@@ -14,7 +14,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -29,11 +28,30 @@ public class AdminAccountService {
     /**
      * Check if user has account management permissions
      */
-    private void checkAccountManagementPermission(User admin) {
-        Optional<AdminPermission> permission = adminPermissionRepository.findAccountManagementPermission(admin.getId());
-        if (permission.isEmpty()) {
+    private void checkAccountManagementPermission(User admin, AdminPermission.PermissionLevel requiredLevel) {
+        if (admin.getRole() == User.UserRole.ADMIN && admin.getAdminRole() == User.AdminRole.SUPER_ADMIN) {
+            return;
+        }
+        boolean permitted = adminPermissionRepository
+                .findByUserIdAndPermissionTypeAndIsActiveTrue(
+                        admin.getId(), AdminPermission.PermissionType.ACCOUNT_MANAGEMENT)
+                .stream()
+                .filter(permission -> permission.getExpiresAt() == null
+                        || permission.getExpiresAt().isAfter(LocalDateTime.now()))
+                .anyMatch(permission -> hasPermissionLevel(permission.getPermissionLevel(), requiredLevel));
+        if (!permitted) {
             throw new RuntimeException("Insufficient permissions for account management");
         }
+    }
+
+    private boolean hasPermissionLevel(
+            AdminPermission.PermissionLevel actual, AdminPermission.PermissionLevel required) {
+        return switch (actual) {
+            case READ -> required == AdminPermission.PermissionLevel.READ;
+            case WRITE -> required == AdminPermission.PermissionLevel.READ
+                    || required == AdminPermission.PermissionLevel.WRITE;
+            case ADMIN, SUPER_ADMIN -> true;
+        };
     }
     
     /**
@@ -41,7 +59,7 @@ public class AdminAccountService {
      */
     @Transactional(readOnly = true)
     public Page<User> getAllUsers(String status, String role, String search, Pageable pageable, User admin) {
-        checkAccountManagementPermission(admin);
+        checkAccountManagementPermission(admin, AdminPermission.PermissionLevel.READ);
         
         // This would need to be implemented in UserRepository with custom query
         // For now, returning all users - implement filtering in repository
@@ -53,7 +71,7 @@ public class AdminAccountService {
      */
     @Transactional(readOnly = true)
     public AccountManagementResponseDto getUserById(Long userId, User admin) {
-        checkAccountManagementPermission(admin);
+        checkAccountManagementPermission(admin, AdminPermission.PermissionLevel.READ);
         
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
@@ -78,7 +96,7 @@ public class AdminAccountService {
      */
     @Transactional
     public AccountManagementResponseDto deactivateAccount(AccountStatusChangeDto request, User admin) {
-        checkAccountManagementPermission(admin);
+        checkAccountManagementPermission(admin, AdminPermission.PermissionLevel.WRITE);
         
         User user = userRepository.findById(request.getUserId())
                 .orElseThrow(() -> new RuntimeException("User not found"));
@@ -107,7 +125,7 @@ public class AdminAccountService {
      */
     @Transactional
     public AccountManagementResponseDto reactivateAccount(AccountStatusChangeDto request, User admin) {
-        checkAccountManagementPermission(admin);
+        checkAccountManagementPermission(admin, AdminPermission.PermissionLevel.WRITE);
         
         User user = userRepository.findById(request.getUserId())
                 .orElseThrow(() -> new RuntimeException("User not found"));
@@ -136,7 +154,7 @@ public class AdminAccountService {
      */
     @Transactional
     public AccountManagementResponseDto suspendAccount(AccountStatusChangeDto request, User admin) {
-        checkAccountManagementPermission(admin);
+        checkAccountManagementPermission(admin, AdminPermission.PermissionLevel.WRITE);
         
         User user = userRepository.findById(request.getUserId())
                 .orElseThrow(() -> new RuntimeException("User not found"));
@@ -165,7 +183,7 @@ public class AdminAccountService {
      */
     @Transactional
     public AccountManagementResponseDto banAccount(AccountStatusChangeDto request, User admin) {
-        checkAccountManagementPermission(admin);
+        checkAccountManagementPermission(admin, AdminPermission.PermissionLevel.WRITE);
         
         User user = userRepository.findById(request.getUserId())
                 .orElseThrow(() -> new RuntimeException("User not found"));
@@ -194,7 +212,7 @@ public class AdminAccountService {
      */
     @Transactional(readOnly = true)
     public Page<Map<String, Object>> getAccountLogs(Long userId, Pageable pageable, User admin) {
-        checkAccountManagementPermission(admin);
+        checkAccountManagementPermission(admin, AdminPermission.PermissionLevel.READ);
         
         Page<AccountManagementLog> logs = accountManagementLogRepository.findByUserIdOrderByCreatedAtDesc(userId, pageable);
         
@@ -218,7 +236,7 @@ public class AdminAccountService {
      */
     @Transactional(readOnly = true)
     public Map<String, Object> getAccountStatistics(User admin) {
-        checkAccountManagementPermission(admin);
+        checkAccountManagementPermission(admin, AdminPermission.PermissionLevel.READ);
         
         Map<String, Object> statistics = new HashMap<>();
         

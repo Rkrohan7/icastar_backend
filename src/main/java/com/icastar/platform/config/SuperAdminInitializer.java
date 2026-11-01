@@ -6,10 +6,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.core.annotation.Order;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
-
-import java.util.Optional;
 
 @Slf4j
 @Component
@@ -20,55 +19,62 @@ public class SuperAdminInitializer implements CommandLineRunner {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
 
+    @Value("${icastar.super-admin.email:}")
+    private String email;
+
+    @Value("${icastar.super-admin.password:}")
+    private String password;
+
+    @Value("${icastar.super-admin.mobile:}")
+    private String mobile;
+
+    @Value("${icastar.super-admin.first-name:Super}")
+    private String firstName;
+
+    @Value("${icastar.super-admin.last-name:Admin}")
+    private String lastName;
+
     @Override
     public void run(String... args) {
         createSuperAdminIfNotExists();
     }
 
     private void createSuperAdminIfNotExists() {
-        String email = "rohanravikadam@gmail.com";
-        String password = "Rohan@123";
-        String mobile = "+919999999999";
+        if (email.isBlank()) {
+            log.warn("Super Admin bootstrap skipped because icastar.super-admin.email is not configured.");
+            return;
+        }
 
-        Optional<User> existingUser = userRepository.findByEmail(email);
-
+        var existingUser = userRepository.findByEmail(email.trim().toLowerCase(java.util.Locale.ROOT));
         if (existingUser.isPresent()) {
             User user = existingUser.get();
-            // Always update password and ensure ADMIN role
-            user.setPassword(passwordEncoder.encode(password));
-            user.setRole(User.UserRole.ADMIN);
-            user.setStatus(User.UserStatus.ACTIVE);
-            user.setAccountStatus(User.AccountStatus.ACTIVE);
-            user.setIsVerified(true);
-            user.setIsOnboardingComplete(true);
-            userRepository.save(user);
-            log.info("✅ SUPER ADMIN updated: {}", email);
-            log.info("   Password reset to: {}", password);
-        } else {
-            // Check if mobile exists
-            Optional<User> existingMobile = userRepository.findByMobile(mobile);
-            if (existingMobile.isPresent()) {
-                mobile = "+919999999998"; // Use alternate mobile
+            if (user.getRole() != User.UserRole.ADMIN || user.getAdminRole() != User.AdminRole.SUPER_ADMIN) {
+                user.setRole(User.UserRole.ADMIN);
+                user.setAdminRole(User.AdminRole.SUPER_ADMIN);
+                userRepository.save(user);
             }
-
+            log.info("Configured Super Admin role for account {}", user.getEmail());
+        } else {
+            if (password.isBlank() || mobile.isBlank()) {
+                log.warn("Super Admin bootstrap skipped: configure email, password and mobile together.");
+                return;
+            }
             User superAdmin = new User();
-            superAdmin.setEmail(email);
-            superAdmin.setMobile(mobile);
-            superAdmin.setFirstName("Rohan");
-            superAdmin.setLastName("Kadam");
+            superAdmin.setEmail(email.trim().toLowerCase(java.util.Locale.ROOT));
+            superAdmin.setMobile(mobile.trim());
+            superAdmin.setFirstName(firstName);
+            superAdmin.setLastName(lastName);
             superAdmin.setPassword(passwordEncoder.encode(password));
             superAdmin.setRole(User.UserRole.ADMIN);
+            superAdmin.setAdminRole(User.AdminRole.SUPER_ADMIN);
             superAdmin.setStatus(User.UserStatus.ACTIVE);
             superAdmin.setAccountStatus(User.AccountStatus.ACTIVE);
             superAdmin.setIsVerified(true);
             superAdmin.setIsOnboardingComplete(true);
             superAdmin.setFailedLoginAttempts(0);
             superAdmin.setLoginAttempts(0);
-
             userRepository.save(superAdmin);
-            log.info("✅ SUPER ADMIN created successfully!");
-            log.info("   Email: {}", email);
-            log.info("   Password: {}", password);
+            log.info("Configured Super Admin account created.");
         }
     }
 }

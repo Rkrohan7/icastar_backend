@@ -68,6 +68,21 @@ public class EmailService {
         }
     }
 
+    public void sendAdminAccountSetupEmail(String toEmail, String setupLink) {
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom(fromEmail);
+        message.setTo(toEmail);
+        message.setSubject("Set up your iCastar admin account");
+        message.setText("Your iCastar admin account has been created. Set your password using this link:\n\n"
+                + setupLink + "\n\nThis link expires in 30 minutes.");
+        try {
+            mailSender.send(message);
+        } catch (RuntimeException exception) {
+            log.error("Failed to send admin account setup email.");
+            throw new IllegalStateException("Unable to send admin account setup email.", exception);
+        }
+    }
+
     @Async
     public void sendFaceVerificationDecisionEmail(String toEmail, boolean approved, boolean profileVerified) {
         String subject = approved

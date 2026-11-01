@@ -97,6 +97,15 @@ public class SuperAdminController {
 
         log.info("Fetching all admins - page: {}, size: {}, search: {}", page, size, search);
 
+        if (page < 0 || size < 1 || size > 100) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false, "message", "Page must be non-negative and size must be between 1 and 100."));
+        }
+        if (!List.of("createdAt", "firstName", "lastName", "email", "lastLogin")
+                .contains(sortBy)) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false, "message", "Unsupported sort field."));
+        }
         Sort sort = sortDir.equalsIgnoreCase("ASC") ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
         Pageable pageable = PageRequest.of(page, size, sort);
 
@@ -109,6 +118,7 @@ public class SuperAdminController {
         response.put("currentPage", admins.getNumber());
         response.put("totalItems", admins.getTotalElements());
         response.put("totalPages", admins.getTotalPages());
+        response.put("size", admins.getSize());
 
         return ResponseEntity.ok(response);
     }
@@ -137,11 +147,13 @@ public class SuperAdminController {
 
     @PostMapping("/admins")
     @Operation(summary = "Create Admin", description = "Create a new admin user")
-    public ResponseEntity<Map<String, Object>> createAdmin(@Valid @RequestBody AdminUserDto.CreateAdminRequest request) {
+    public ResponseEntity<Map<String, Object>> createAdmin(
+            @Valid @RequestBody AdminUserDto.CreateAdminRequest request,
+            Authentication authentication) {
         log.info("Creating new admin with email: {}", request.getEmail());
 
         try {
-            AdminUserDto admin = superAdminService.createAdmin(request);
+            AdminUserDto admin = superAdminService.createAdmin(request, getAdminActor(authentication));
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
@@ -161,11 +173,12 @@ public class SuperAdminController {
     @Operation(summary = "Update Admin", description = "Update an existing admin user")
     public ResponseEntity<Map<String, Object>> updateAdmin(
             @PathVariable Long id,
-            @Valid @RequestBody AdminUserDto.UpdateAdminRequest request) {
+            @Valid @RequestBody AdminUserDto.UpdateAdminRequest request,
+            Authentication authentication) {
         log.info("Updating admin with id: {}", id);
 
         try {
-            AdminUserDto admin = superAdminService.updateAdmin(id, request);
+            AdminUserDto admin = superAdminService.updateAdmin(id, request, getAdminActor(authentication));
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
@@ -185,11 +198,12 @@ public class SuperAdminController {
     @Operation(summary = "Change Admin Status", description = "Change the status of an admin user")
     public ResponseEntity<Map<String, Object>> changeAdminStatus(
             @PathVariable Long id,
-            @Valid @RequestBody AdminUserDto.ChangeStatusRequest request) {
+            @Valid @RequestBody AdminUserDto.ChangeStatusRequest request,
+            Authentication authentication) {
         log.info("Changing status of admin with id: {} to {}", id, request.getStatus());
 
         try {
-            AdminUserDto admin = superAdminService.changeAdminStatus(id, request);
+            AdminUserDto admin = superAdminService.changeAdminStatus(id, request, getAdminActor(authentication));
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
@@ -207,11 +221,12 @@ public class SuperAdminController {
 
     @DeleteMapping("/admins/{id}")
     @Operation(summary = "Delete Admin", description = "Delete an admin user")
-    public ResponseEntity<Map<String, Object>> deleteAdmin(@PathVariable Long id) {
+    public ResponseEntity<Map<String, Object>> deleteAdmin(
+            @PathVariable Long id, Authentication authentication) {
         log.info("Deleting admin with id: {}", id);
 
         try {
-            superAdminService.deleteAdmin(id);
+            superAdminService.deleteAdmin(id, getAdminActor(authentication));
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
@@ -224,6 +239,10 @@ public class SuperAdminController {
             response.put("message", e.getMessage());
             return ResponseEntity.badRequest().body(response);
         }
+    }
+
+    private User getAdminActor(Authentication authentication) {
+        return superAdminService.getAdminActor(authentication.getName());
     }
 
     // ==================== ALL RECRUITERS APIs ====================

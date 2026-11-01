@@ -81,6 +81,14 @@ logging:
 
 # Production-specific settings
 icastar:
+  frontend:
+    url: ${FRONTEND_URL:https://www.icastar.com}
+  super-admin:
+    email: ${SUPER_ADMIN_EMAIL:}
+    password: ${SUPER_ADMIN_PASSWORD:}
+    mobile: ${SUPER_ADMIN_MOBILE:}
+    first-name: ${SUPER_ADMIN_FIRST_NAME:Super}
+    last-name: ${SUPER_ADMIN_LAST_NAME:Admin}
   file:
     upload-dir: uploads/prod/
   otp:

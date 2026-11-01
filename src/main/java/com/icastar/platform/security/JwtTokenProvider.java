@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
 import java.util.Date;
+import java.util.Map;
 
 @Component
 @Slf4j
@@ -38,9 +39,14 @@ public class JwtTokenProvider {
     }
 
     public String generateTokenFromUsername(String username) {
+        return generateTokenFromUsername(username, Map.of());
+    }
+
+    public String generateTokenFromUsername(String username, Map<String, Object> claims) {
         Date expiryDate = new Date(System.currentTimeMillis() + jwtExpirationInMs);
 
         return Jwts.builder()
+                .setClaims(claims)
                 .setSubject(username)
                 .setIssuedAt(new Date())
                 .setExpiration(expiryDate)

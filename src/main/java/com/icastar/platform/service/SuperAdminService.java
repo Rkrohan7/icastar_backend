@@ -23,6 +23,7 @@ import com.icastar.platform.config.CacheNames;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.security.SecureRandom;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -46,6 +47,13 @@ public class SuperAdminService {
     private final ObjectMapper objectMapper;
     private final EmailService emailService;
     private final CommunicationLogRepository communicationLogRepository;
+    private final AdminPermissionRepository adminPermissionRepository;
+    private final PasswordResetTokenRepository passwordResetTokenRepository;
+
+    @org.springframework.beans.factory.annotation.Value("${icastar.frontend.url:https://www.icastar.com}")
+    private String frontendUrl;
+
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     // ==================== ADMIN USER MANAGEMENT ====================
 
@@ -54,43 +62,17 @@ public class SuperAdminService {
      */
     @Transactional(readOnly = true)
     public Page<AdminUserDto> getAllAdmins(Pageable pageable, String search, String status) {
-        log.info("Fetching all admins - search: {}, status: {}", search, status);
+        User.AccountStatus accountStatus = parseAccountStatus(status);
+        Page<User> users = userRepository.findAdminAccounts(
+                User.UserRole.ADMIN, accountStatus, normalizeSearch(search), pageable);
+        return mapAdminPage(users);
+    }
 
-        List<User> admins = userRepository.findByRole(User.UserRole.ADMIN);
-
-        // Apply search filter
-        if (search != null && !search.isEmpty()) {
-            String searchLower = search.toLowerCase();
-            admins = admins.stream()
-                    .filter(u -> (u.getFirstName() != null && u.getFirstName().toLowerCase().contains(searchLower)) ||
-                                 (u.getLastName() != null && u.getLastName().toLowerCase().contains(searchLower)) ||
-                                 (u.getEmail() != null && u.getEmail().toLowerCase().contains(searchLower)))
-                    .collect(Collectors.toList());
-        }
-
-        // Apply status filter
-        if (status != null && !status.isEmpty()) {
-            try {
-                User.AccountStatus accountStatus = User.AccountStatus.valueOf(status.toUpperCase());
-                admins = admins.stream()
-                        .filter(u -> u.getAccountStatus() == accountStatus)
-                        .collect(Collectors.toList());
-            } catch (IllegalArgumentException e) {
-                log.warn("Invalid account status: {}", status);
-            }
-        }
-
-        // Convert to DTOs
-        List<AdminUserDto> adminDtos = admins.stream()
-                .map(this::mapToAdminDto)
-                .collect(Collectors.toList());
-
-        // Apply pagination
-        int start = (int) pageable.getOffset();
-        int end = Math.min(start + pageable.getPageSize(), adminDtos.size());
-        List<AdminUserDto> pagedAdmins = start < adminDtos.size() ? adminDtos.subList(start, end) : Collections.emptyList();
-
-        return new PageImpl<>(pagedAdmins, pageable, adminDtos.size());
+    @Transactional(readOnly = true)
+    public User getAdminActor(String email) {
+        return userRepository.findByEmail(email)
+                .filter(user -> user.getRole() == User.UserRole.ADMIN)
+                .orElseThrow(() -> new IllegalArgumentException("Authenticated admin account was not found."));
     }
 
     /**
@@ -114,36 +96,39 @@ public class SuperAdminService {
      * Create new admin user
      */
     @Transactional
-    public AdminUserDto createAdmin(AdminUserDto.CreateAdminRequest request) {
-        log.info("Creating new admin with email: {}", request.getEmail());
-
-        // Check if email already exists
-        if (userRepository.findByEmail(request.getEmail()).isPresent()) {
-            throw new RuntimeException("Email already exists: " + request.getEmail());
+    public AdminUserDto createAdmin(AdminUserDto.CreateAdminRequest request, User actor) {
+        String email = request.getEmail().trim().toLowerCase(Locale.ROOT);
+        String mobile = request.getMobile().trim();
+        if (userRepository.findByEmail(email).isPresent()) {
+            throw new IllegalArgumentException("Email already exists.");
+        }
+        if (userRepository.findByMobile(mobile).isPresent()) {
+            throw new IllegalArgumentException("Mobile already exists.");
         }
 
-        // Check if mobile already exists
-        if (userRepository.findByMobile(request.getMobile()).isPresent()) {
-            throw new RuntimeException("Mobile already exists: " + request.getMobile());
-        }
-
+        User.AdminRole adminRole = parseAdminRole(request.getRole());
         User admin = new User();
-        admin.setFirstName(request.getFirstName());
-        admin.setLastName(request.getLastName());
-        admin.setEmail(request.getEmail());
-        admin.setMobile(request.getMobile());
-        admin.setPassword(passwordEncoder.encode(request.getPassword()));
+        admin.setFirstName(request.getFirstName().trim());
+        admin.setLastName(request.getLastName().trim());
+        admin.setEmail(email);
+        admin.setMobile(mobile);
+        admin.setPassword(passwordEncoder.encode(
+                request.getPassword() == null ? generateTemporaryPassword() : request.getPassword()));
         admin.setRole(User.UserRole.ADMIN);
+        admin.setAdminRole(adminRole);
         admin.setStatus(User.UserStatus.ACTIVE);
         admin.setAccountStatus(User.AccountStatus.ACTIVE);
         admin.setIsVerified(true);
+        admin.setEmailVerified(false);
         admin.setIsOnboardingComplete(true);
         admin.setFailedLoginAttempts(0);
         admin.setLoginAttempts(0);
 
         User savedAdmin = userRepository.save(admin);
-        log.info("Admin created successfully with id: {}", savedAdmin.getId());
-
+        replacePermissions(savedAdmin, actor, request.getPermissions());
+        if (request.getPassword() == null) {
+            sendAdminPasswordSetupLink(savedAdmin);
+        }
         return mapToAdminDto(savedAdmin);
     }
 
@@ -151,9 +136,7 @@ public class SuperAdminService {
      * Update admin user
      */
     @Transactional
-    public AdminUserDto updateAdmin(Long id, AdminUserDto.UpdateAdminRequest request) {
-        log.info("Updating admin with id: {}", id);
-
+    public AdminUserDto updateAdmin(Long id, AdminUserDto.UpdateAdminRequest request, User actor) {
         User admin = userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Admin not found with id: " + id));
 
@@ -162,35 +145,41 @@ public class SuperAdminService {
         }
 
         // Update fields if provided
-        if (request.getFirstName() != null && !request.getFirstName().isEmpty()) {
-            admin.setFirstName(request.getFirstName());
+        if (request.getFirstName() != null) {
+            admin.setFirstName(request.getFirstName().trim());
         }
-        if (request.getLastName() != null && !request.getLastName().isEmpty()) {
-            admin.setLastName(request.getLastName());
+        if (request.getLastName() != null) {
+            admin.setLastName(request.getLastName().trim());
         }
-        if (request.getEmail() != null && !request.getEmail().isEmpty()) {
-            // Check if email is different and already exists
-            if (!admin.getEmail().equals(request.getEmail()) &&
-                userRepository.findByEmail(request.getEmail()).isPresent()) {
-                throw new RuntimeException("Email already exists: " + request.getEmail());
+        if (request.getEmail() != null) {
+            String email = request.getEmail().trim().toLowerCase(Locale.ROOT);
+            if (!admin.getEmail().equals(email) && userRepository.findByEmail(email).isPresent()) {
+                throw new IllegalArgumentException("Email already exists.");
             }
-            admin.setEmail(request.getEmail());
+            admin.setEmail(email);
         }
-        if (request.getMobile() != null && !request.getMobile().isEmpty()) {
-            // Check if mobile is different and already exists
-            if (!admin.getMobile().equals(request.getMobile()) &&
-                userRepository.findByMobile(request.getMobile()).isPresent()) {
-                throw new RuntimeException("Mobile already exists: " + request.getMobile());
+        if (request.getMobile() != null) {
+            String mobile = request.getMobile().trim();
+            if (!admin.getMobile().equals(mobile) && userRepository.findByMobile(mobile).isPresent()) {
+                throw new IllegalArgumentException("Mobile already exists.");
             }
-            admin.setMobile(request.getMobile());
+            admin.setMobile(mobile);
         }
-        if (request.getPassword() != null && !request.getPassword().isEmpty()) {
+        boolean roleChanged = false;
+        if (request.getRole() != null) {
+            User.AdminRole updatedRole = parseAdminRole(request.getRole());
+            preventRemovingLastSuperAdmin(admin, updatedRole);
+            roleChanged = admin.getAdminRole() != updatedRole;
+            admin.setAdminRole(updatedRole);
+        }
+        if (request.getPassword() != null) {
             admin.setPassword(passwordEncoder.encode(request.getPassword()));
         }
 
         User savedAdmin = userRepository.save(admin);
-        log.info("Admin updated successfully with id: {}", savedAdmin.getId());
-
+        if (request.getPermissions() != null || roleChanged) {
+            replacePermissions(savedAdmin, actor, request.getPermissions());
+        }
         return mapToAdminDto(savedAdmin);
     }
 
@@ -198,9 +187,7 @@ public class SuperAdminService {
      * Change admin status
      */
     @Transactional
-    public AdminUserDto changeAdminStatus(Long id, AdminUserDto.ChangeStatusRequest request) {
-        log.info("Changing status of admin with id: {} to {}", id, request.getStatus());
-
+    public AdminUserDto changeAdminStatus(Long id, AdminUserDto.ChangeStatusRequest request, User actor) {
         User admin = userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Admin not found with id: " + id));
 
@@ -208,34 +195,32 @@ public class SuperAdminService {
             throw new RuntimeException("User is not an admin");
         }
 
+        User.AccountStatus newStatus;
         try {
-            User.AccountStatus newStatus = User.AccountStatus.valueOf(request.getStatus().toUpperCase());
-            admin.setAccountStatus(newStatus);
-
-            // Also update UserStatus for consistency
-            switch (newStatus) {
-                case ACTIVE:
-                    admin.setStatus(User.UserStatus.ACTIVE);
-                    break;
-                case INACTIVE:
-                    admin.setStatus(User.UserStatus.INACTIVE);
-                    break;
-                case SUSPENDED:
-                    admin.setStatus(User.UserStatus.SUSPENDED);
-                    break;
-                case BANNED:
-                    admin.setStatus(User.UserStatus.BANNED);
-                    break;
-                default:
-                    break;
-            }
-
-            if (request.getReason() != null && !request.getReason().isEmpty()) {
-                admin.setDeactivationReason(request.getReason());
-            }
-
-        } catch (IllegalArgumentException e) {
-            throw new RuntimeException("Invalid status: " + request.getStatus());
+            newStatus = User.AccountStatus.valueOf(request.getStatus().trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException exception) {
+            throw new IllegalArgumentException("Status must be ACTIVE or SUSPENDED.");
+        }
+        if (newStatus != User.AccountStatus.ACTIVE && newStatus != User.AccountStatus.SUSPENDED) {
+            throw new IllegalArgumentException("Status must be ACTIVE or SUSPENDED.");
+        }
+        if (admin.getId().equals(actor.getId()) && newStatus != User.AccountStatus.ACTIVE) {
+            throw new IllegalArgumentException("You cannot suspend your own account.");
+        }
+        if (newStatus == User.AccountStatus.SUSPENDED) {
+            preventRemovingLastSuperAdmin(admin, User.AdminRole.ADMIN);
+        }
+        admin.setAccountStatus(newStatus);
+        admin.setStatus(newStatus == User.AccountStatus.ACTIVE
+                ? User.UserStatus.ACTIVE : User.UserStatus.SUSPENDED);
+        if (newStatus == User.AccountStatus.ACTIVE) {
+            admin.setReactivatedAt(LocalDateTime.now());
+            admin.setReactivatedBy(actor);
+            admin.setReactivationReason(request.getReason());
+        } else {
+            admin.setDeactivatedAt(LocalDateTime.now());
+            admin.setDeactivatedBy(actor);
+            admin.setDeactivationReason(request.getReason());
         }
 
         User savedAdmin = userRepository.save(admin);
@@ -248,9 +233,7 @@ public class SuperAdminService {
      * Delete admin user
      */
     @Transactional
-    public void deleteAdmin(Long id) {
-        log.info("Deleting admin with id: {}", id);
-
+    public void deleteAdmin(Long id, User actor) {
         User admin = userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Admin not found with id: " + id));
 
@@ -258,29 +241,174 @@ public class SuperAdminService {
             throw new RuntimeException("User is not an admin");
         }
 
+        if (admin.getId().equals(actor.getId())) {
+            throw new IllegalArgumentException("You cannot delete your own account.");
+        }
+        preventRemovingLastSuperAdmin(admin, User.AdminRole.ADMIN);
         userRepository.delete(admin);
-        log.info("Admin deleted successfully with id: {}", id);
     }
 
     /**
      * Map User entity to AdminUserDto
      */
     private AdminUserDto mapToAdminDto(User user) {
+        List<AdminUserDto.PermissionDto> permissions = user.getAdminRole() == User.AdminRole.SUPER_ADMIN
+                ? Arrays.stream(AdminPermission.PermissionType.values())
+                    .map(type -> new AdminUserDto.PermissionDto(
+                            type, AdminPermission.PermissionLevel.SUPER_ADMIN))
+                    .toList()
+                : adminPermissionRepository.findByUserIdAndIsActiveTrue(user.getId()).stream()
+                    .filter(permission -> permission.getExpiresAt() == null
+                            || permission.getExpiresAt().isAfter(LocalDateTime.now()))
+                    .map(permission -> new AdminUserDto.PermissionDto(
+                            permission.getPermissionType(), permission.getPermissionLevel()))
+                    .toList();
         return AdminUserDto.builder()
                 .id(user.getId())
                 .firstName(user.getFirstName())
                 .lastName(user.getLastName())
                 .email(user.getEmail())
                 .mobile(user.getMobile())
-                .role(user.getRole() != null ? user.getRole().name() : null)
+                .role(user.getAdminRole() != null ? user.getAdminRole().name() : User.AdminRole.ADMIN.name())
+                .permissions(permissions)
                 .status(user.getStatus() != null ? user.getStatus().name() : null)
                 .accountStatus(user.getAccountStatus() != null ? user.getAccountStatus().name() : null)
                 .isVerified(user.getIsVerified())
                 .isActive(user.getStatus() == User.UserStatus.ACTIVE)
                 .lastLogin(user.getLastLogin())
+                .lastLoginAt(user.getLastLogin())
                 .createdAt(user.getCreatedAt())
                 .updatedAt(user.getUpdatedAt())
                 .build();
+    }
+
+    private Page<AdminUserDto> mapAdminPage(Page<User> users) {
+        Map<Long, List<AdminUserDto.PermissionDto>> permissionMap = new HashMap<>();
+        List<Long> ids = users.getContent().stream().map(User::getId).toList();
+        if (!ids.isEmpty()) {
+            adminPermissionRepository.findByUserIdInAndIsActiveTrue(ids).forEach(permission ->
+                    {
+                        if (permission.getExpiresAt() == null
+                                || permission.getExpiresAt().isAfter(LocalDateTime.now())) {
+                            permissionMap.computeIfAbsent(permission.getUser().getId(), ignored -> new ArrayList<>())
+                                    .add(new AdminUserDto.PermissionDto(
+                                            permission.getPermissionType(), permission.getPermissionLevel()));
+                        }
+                    });
+        }
+        return users.map(user -> {
+            AdminUserDto dto = mapToAdminDtoWithoutPermissions(user);
+            dto.setPermissions(user.getAdminRole() == User.AdminRole.SUPER_ADMIN
+                    ? Arrays.stream(AdminPermission.PermissionType.values())
+                        .map(type -> new AdminUserDto.PermissionDto(
+                                type, AdminPermission.PermissionLevel.SUPER_ADMIN))
+                        .toList()
+                    : permissionMap.getOrDefault(user.getId(), List.of()));
+            return dto;
+        });
+    }
+
+    private AdminUserDto mapToAdminDtoWithoutPermissions(User user) {
+        return AdminUserDto.builder()
+                .id(user.getId())
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
+                .email(user.getEmail())
+                .mobile(user.getMobile())
+                .role(user.getAdminRole() == null ? User.AdminRole.ADMIN.name() : user.getAdminRole().name())
+                .status(user.getStatus() == null ? null : user.getStatus().name())
+                .accountStatus(user.getAccountStatus() == null ? null : user.getAccountStatus().name())
+                .isVerified(user.getIsVerified())
+                .isActive(user.getAccountStatus() == User.AccountStatus.ACTIVE)
+                .lastLogin(user.getLastLogin())
+                .lastLoginAt(user.getLastLogin())
+                .createdAt(user.getCreatedAt())
+                .updatedAt(user.getUpdatedAt())
+                .build();
+    }
+
+    private User.AccountStatus parseAccountStatus(String status) {
+        if (status == null || status.isBlank()) {
+            return null;
+        }
+        try {
+            return User.AccountStatus.valueOf(status.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException exception) {
+            throw new IllegalArgumentException("Invalid account status: " + status);
+        }
+    }
+
+    private User.AdminRole parseAdminRole(String role) {
+        if (role == null || role.isBlank()) {
+            return User.AdminRole.ADMIN;
+        }
+        try {
+            return User.AdminRole.valueOf(role.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException exception) {
+            throw new IllegalArgumentException("Invalid admin role.");
+        }
+    }
+
+    private String normalizeSearch(String search) {
+        return search == null || search.isBlank() ? null : search.trim();
+    }
+
+    private void replacePermissions(
+            User user, User actor, List<AdminUserDto.PermissionDto> requestedPermissions) {
+        if (user.getAdminRole() != User.AdminRole.SUPER_ADMIN
+                && requestedPermissions != null
+                && requestedPermissions.stream().anyMatch(permission ->
+                    permission.getPermissionLevel() == AdminPermission.PermissionLevel.SUPER_ADMIN)) {
+            throw new IllegalArgumentException("Only Super Admin accounts may receive SUPER_ADMIN permissions.");
+        }
+        List<AdminPermission> current = adminPermissionRepository.findByUserIdAndIsActiveTrue(user.getId());
+        current.forEach(permission -> permission.setIsActive(false));
+        adminPermissionRepository.saveAll(current);
+
+        if (requestedPermissions == null) {
+            return;
+        }
+        Set<String> seen = new HashSet<>();
+        for (AdminUserDto.PermissionDto requested : requestedPermissions) {
+            if (requested == null || requested.getPermissionType() == null
+                    || requested.getPermissionLevel() == null) {
+                throw new IllegalArgumentException("Each permission requires a type and level.");
+            }
+            String permissionKey = requested.getPermissionType() + ":" + requested.getPermissionLevel();
+            if (!seen.add(permissionKey)) {
+                continue;
+            }
+            AdminPermission permission = AdminPermission.builder()
+                    .user(user)
+                    .permissionType(requested.getPermissionType())
+                    .permissionLevel(requested.getPermissionLevel())
+                    .isActive(true)
+                    .grantedBy(actor)
+                    .grantedAt(LocalDateTime.now())
+                    .build();
+            adminPermissionRepository.save(permission);
+        }
+    }
+
+    private void preventRemovingLastSuperAdmin(User admin, User.AdminRole newRole) {
+        if (admin.getAdminRole() == User.AdminRole.SUPER_ADMIN
+                && newRole != User.AdminRole.SUPER_ADMIN
+                && userRepository.countByRoleAndAdminRoleAndAccountStatus(
+                        User.UserRole.ADMIN, User.AdminRole.SUPER_ADMIN, User.AccountStatus.ACTIVE) <= 1) {
+            throw new IllegalArgumentException("Cannot remove or suspend the last Super Admin.");
+        }
+    }
+
+    private String generateTemporaryPassword() {
+        return "Aa1!" + UUID.randomUUID().toString().replace("-", "") + SECURE_RANDOM.nextInt(10);
+    }
+
+    private void sendAdminPasswordSetupLink(User user) {
+        String token = UUID.randomUUID().toString();
+        passwordResetTokenRepository.save(new PasswordResetToken(token, user));
+        String resetLink = frontendUrl.replaceAll("/+$", "")
+                + "/reset-password?token=" + token;
+        emailService.sendAdminAccountSetupEmail(user.getEmail(), resetLink);
     }
 
     /**

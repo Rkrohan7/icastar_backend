@@ -68,6 +68,23 @@ class AuthVerificationServicePasswordPolicyTest {
     }
 
     @Test
+    void requestRegistrationRejectsAdminRole() {
+        EmailRegisterRequestDto request = new EmailRegisterRequestDto();
+        request.setEmail("newuser@example.com");
+        request.setMobile("9876543210");
+        request.setPassword("StrongPass1!");
+        request.setRole("ADMIN");
+        when(userRepository.findByEmail("newuser@example.com")).thenReturn(Optional.empty());
+        when(userRepository.findByMobile("9876543210")).thenReturn(Optional.empty());
+
+        AuthFlowException exception = assertThrows(
+                AuthFlowException.class, () -> service.requestRegistration(request));
+
+        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatus());
+        verifyNoInteractions(challengeRepository, passwordEncoder);
+    }
+
+    @Test
     void requestRegistrationSendsOnlyEmailOtp() {
         EmailRegisterRequestDto request = new EmailRegisterRequestDto();
         request.setEmail("newuser@example.com");

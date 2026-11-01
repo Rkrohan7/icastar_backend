@@ -41,6 +41,10 @@ public class User extends BaseEntity {
     private UserRole role;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "admin_role", nullable = false)
+    private AdminRole adminRole = AdminRole.ADMIN;
+
+    @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
     private UserStatus status = UserStatus.ACTIVE;
 
@@ -125,6 +129,10 @@ public class User extends BaseEntity {
 
     public enum UserRole {
         ADMIN, ARTIST, RECRUITER
+    }
+
+    public enum AdminRole {
+        ADMIN, SUPER_ADMIN, MODERATOR, SUPPORT
     }
 
     public enum UserStatus {

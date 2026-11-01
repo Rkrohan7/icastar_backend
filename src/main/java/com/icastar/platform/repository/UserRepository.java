@@ -1,6 +1,7 @@
 package com.icastar.platform.repository;
 
 import com.icastar.platform.entity.User;
+import com.icastar.platform.entity.User.AdminRole;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -57,6 +58,26 @@ public interface UserRepository extends JpaRepository<User, Long> {
     // Enhanced User Management Repository Methods
 
     Page<User> findByRole(User.UserRole role, Pageable pageable);
+
+    @Query("""
+            SELECT u FROM User u
+            WHERE u.role = :role
+              AND (:status IS NULL OR u.accountStatus = :status)
+              AND (:search IS NULL OR
+                   LOWER(u.firstName) LIKE LOWER(CONCAT('%', :search, '%')) OR
+                   LOWER(u.lastName) LIKE LOWER(CONCAT('%', :search, '%')) OR
+                   LOWER(u.email) LIKE LOWER(CONCAT('%', :search, '%')))
+            """)
+    Page<User> findAdminAccounts(
+            @Param("role") User.UserRole role,
+            @Param("status") User.AccountStatus status,
+            @Param("search") String search,
+            Pageable pageable);
+
+    long countByRoleAndAdminRole(User.UserRole role, AdminRole adminRole);
+
+    long countByRoleAndAdminRoleAndAccountStatus(
+            User.UserRole role, AdminRole adminRole, User.AccountStatus accountStatus);
 
     Page<User> findByStatus(User.UserStatus status, Pageable pageable);
 

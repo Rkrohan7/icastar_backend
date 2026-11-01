@@ -190,6 +190,25 @@ Legacy `/api/auth/login`, `/api/auth/register`, `/api/auth/otp/send`, and
 verification flow above. Configure `MSG91_AUTH_KEY` and `MSG91_OTP_TEMPLATE_ID`
 on the backend only if SMS delivery is needed for other application features.
 
+### Admin account management
+
+The `/api/super-admin/admins` CRUD endpoints require an authenticated account
+whose primary role is `ADMIN` and whose persisted admin role is `SUPER_ADMIN`.
+Admin login still returns `role: "ADMIN"` for frontend routing; its
+`adminRole` is one of `ADMIN`, `SUPER_ADMIN`, `MODERATOR`, or `SUPPORT`, and
+`permissions` contains the granted permission types and levels. The backend
+reloads these grants for protected requests rather than trusting token claims.
+
+Create requests may omit `password`; the API creates a random hashed password
+and sends a time-limited password setup link. If a password is supplied, it is
+validated and hashed, and is never returned. Public signup accepts only
+`ARTIST` and `RECRUITER`.
+
+Configure `SUPER_ADMIN_EMAIL` to promote an existing account to Super Admin.
+Only when bootstrapping a new Super Admin, also configure
+`SUPER_ADMIN_PASSWORD` and `SUPER_ADMIN_MOBILE`. These values must come from
+the deployment's secret configuration, not source control.
+
 ### Artist Management
 - `GET /api/artists/profile` - Get artist profile
 - `POST /api/artists/profile` - Create artist profile

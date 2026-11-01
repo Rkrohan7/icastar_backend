@@ -13,6 +13,8 @@ import java.util.Optional;
 public interface AdminPermissionRepository extends JpaRepository<AdminPermission, Long> {
     
     List<AdminPermission> findByUserIdAndIsActiveTrue(Long userId);
+
+    List<AdminPermission> findByUserIdInAndIsActiveTrue(List<Long> userIds);
     
     List<AdminPermission> findByUserIdAndPermissionTypeAndIsActiveTrue(Long userId, AdminPermission.PermissionType permissionType);
     

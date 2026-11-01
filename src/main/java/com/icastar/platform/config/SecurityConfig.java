@@ -2,6 +2,7 @@ package com.icastar.platform.config;
 
 import com.icastar.platform.security.JwtAuthenticationEntryPoint;
 import com.icastar.platform.security.JwtAuthenticationFilter;
+import com.icastar.platform.security.AdminApiAuthorizationManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -27,6 +28,7 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
+    private final AdminApiAuthorizationManager adminApiAuthorizationManager;
     private final CorsConfigurationSource corsConfigurationSource;
 
     @Bean
@@ -69,8 +71,9 @@ public class SecurityConfig {
                         // CORS preflight is always public
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                        // Super Admin routes require ADMIN role
-                        .requestMatchers("/super-admin/**").hasRole("ADMIN")
+                        // Super Admin routes require the persisted Super Admin sub-role
+                        .requestMatchers("/super-admin/**").hasAuthority("ADMIN_ROLE_SUPER_ADMIN")
+                        .requestMatchers("/admin/**", "/api/admin/**").access(adminApiAuthorizationManager)
 
                         // Everything else requires auth
                         .anyRequest().authenticated()

@@ -1,8 +1,10 @@
 package com.icastar.platform.controller;
 
 import com.icastar.platform.dto.auth.*;
+import com.icastar.platform.dto.superadmin.AdminUserDto;
 import com.icastar.platform.entity.ArtistProfile;
 import com.icastar.platform.entity.ArtistProfileArtistType;
+import com.icastar.platform.entity.AdminPermission;
 import com.icastar.platform.entity.Otp;
 import com.icastar.platform.entity.PasswordResetToken;
 import com.icastar.platform.entity.RecruiterProfile;
@@ -10,6 +12,7 @@ import com.icastar.platform.entity.User;
 import com.icastar.platform.exception.AuthFlowException;
 import com.icastar.platform.repository.ArtistProfileRepository;
 import com.icastar.platform.repository.ArtistProfileArtistTypeRepository;
+import com.icastar.platform.repository.AdminPermissionRepository;
 import com.icastar.platform.repository.PasswordResetTokenRepository;
 import com.icastar.platform.repository.RecruiterProfileRepository;
 import com.icastar.platform.repository.UserRepository;
@@ -60,6 +63,7 @@ public class AuthController {
     private final RecruiterProfileRepository recruiterProfileRepository;
     private final ArtistProfileRepository artistProfileRepository;
     private final ArtistProfileArtistTypeRepository artistProfileArtistTypeRepository;
+    private final AdminPermissionRepository adminPermissionRepository;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
 
 
@@ -189,8 +193,20 @@ public class AuthController {
                         "success", false,
                         "message", "Invalid verification code or maximum attempts reached."));
             }
-            String token = jwtTokenProvider.generateTokenFromUsername(user.getEmail());
+            List<AdminUserDto.PermissionDto> permissions = user.getRole() != User.UserRole.ADMIN
+                    ? List.of() : effectiveAdminPermissions(user);
+            Map<String, Object> claims = new HashMap<>();
+            claims.put("role", user.getRole().name());
+            if (user.getRole() == User.UserRole.ADMIN) {
+                claims.put("adminRole", user.getAdminRole().name());
+                claims.put("permissions", permissions.stream()
+                        .map(permission -> permission.getPermissionType().name()
+                                + ":" + permission.getPermissionLevel().name())
+                        .toList());
+            }
+            String token = jwtTokenProvider.generateTokenFromUsername(user.getEmail(), claims);
             AuthResponseDto authResponse = new AuthResponseDto(token, user);
+            authResponse.setPermissions(permissions);
             return ResponseEntity.ok(Map.of(
                     "success", true,
                     "message", "Login successful",
@@ -201,6 +217,20 @@ public class AuthController {
             log.error("Failed to verify login OTP", e);
             return serviceUnavailable("Unable to complete login. Please try again.");
         }
+    }
+
+    private List<AdminUserDto.PermissionDto> effectiveAdminPermissions(User user) {
+        if (user.getAdminRole() == User.AdminRole.SUPER_ADMIN) {
+            return java.util.Arrays.stream(AdminPermission.PermissionType.values())
+                    .map(type -> new AdminUserDto.PermissionDto(type, AdminPermission.PermissionLevel.SUPER_ADMIN))
+                    .toList();
+        }
+        return adminPermissionRepository.findByUserIdAndIsActiveTrue(user.getId()).stream()
+                .filter(permission -> permission.getExpiresAt() == null
+                        || permission.getExpiresAt().isAfter(LocalDateTime.now()))
+                .map(permission -> new AdminUserDto.PermissionDto(
+                        permission.getPermissionType(), permission.getPermissionLevel()))
+                .toList();
     }
 
     @PostMapping("/login/otp/resend")
