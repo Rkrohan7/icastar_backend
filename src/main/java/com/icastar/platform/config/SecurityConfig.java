@@ -71,8 +71,8 @@ public class SecurityConfig {
                         // CORS preflight is always public
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                        // Super Admin routes require the persisted Super Admin sub-role
-                        .requestMatchers("/super-admin/**").hasAuthority("ADMIN_ROLE_SUPER_ADMIN")
+                        // Admin and Super Admin share access to super-admin management routes.
+                        .requestMatchers("/super-admin/**").hasRole("ADMIN")
                         .requestMatchers("/admin/**", "/api/admin/**").access(adminApiAuthorizationManager)
 
                         // Everything else requires auth

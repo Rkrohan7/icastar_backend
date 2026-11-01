@@ -123,6 +123,10 @@ public class SuperAdminService {
         admin.setIsOnboardingComplete(true);
         admin.setFailedLoginAttempts(0);
         admin.setLoginAttempts(0);
+        admin.setAdminCreatedById(actor.getId());
+        admin.setAdminUpdatedById(actor.getId());
+        admin.setCreatedAt(LocalDateTime.now());
+        admin.setUpdatedAt(LocalDateTime.now());
 
         User savedAdmin = userRepository.save(admin);
         replacePermissions(savedAdmin, actor, request.getPermissions());
@@ -165,19 +169,18 @@ public class SuperAdminService {
             }
             admin.setMobile(mobile);
         }
-        boolean roleChanged = false;
         if (request.getRole() != null) {
             User.AdminRole updatedRole = parseAdminRole(request.getRole());
-            preventRemovingLastSuperAdmin(admin, updatedRole);
-            roleChanged = admin.getAdminRole() != updatedRole;
             admin.setAdminRole(updatedRole);
         }
         if (request.getPassword() != null) {
             admin.setPassword(passwordEncoder.encode(request.getPassword()));
         }
 
+        admin.setAdminUpdatedById(actor.getId());
+        admin.setUpdatedAt(LocalDateTime.now());
         User savedAdmin = userRepository.save(admin);
-        if (request.getPermissions() != null || roleChanged) {
+        if (request.getPermissions() != null) {
             replacePermissions(savedAdmin, actor, request.getPermissions());
         }
         return mapToAdminDto(savedAdmin);
@@ -207,9 +210,6 @@ public class SuperAdminService {
         if (admin.getId().equals(actor.getId()) && newStatus != User.AccountStatus.ACTIVE) {
             throw new IllegalArgumentException("You cannot suspend your own account.");
         }
-        if (newStatus == User.AccountStatus.SUSPENDED) {
-            preventRemovingLastSuperAdmin(admin, User.AdminRole.ADMIN);
-        }
         admin.setAccountStatus(newStatus);
         admin.setStatus(newStatus == User.AccountStatus.ACTIVE
                 ? User.UserStatus.ACTIVE : User.UserStatus.SUSPENDED);
@@ -222,6 +222,8 @@ public class SuperAdminService {
             admin.setDeactivatedBy(actor);
             admin.setDeactivationReason(request.getReason());
         }
+        admin.setAdminUpdatedById(actor.getId());
+        admin.setUpdatedAt(LocalDateTime.now());
 
         User savedAdmin = userRepository.save(admin);
         log.info("Admin status changed successfully to {}", savedAdmin.getAccountStatus());
@@ -244,7 +246,6 @@ public class SuperAdminService {
         if (admin.getId().equals(actor.getId())) {
             throw new IllegalArgumentException("You cannot delete your own account.");
         }
-        preventRemovingLastSuperAdmin(admin, User.AdminRole.ADMIN);
         userRepository.delete(admin);
     }
 
@@ -277,6 +278,8 @@ public class SuperAdminService {
                 .isActive(user.getStatus() == User.UserStatus.ACTIVE)
                 .lastLogin(user.getLastLogin())
                 .lastLoginAt(user.getLastLogin())
+                .createdBy(user.getAdminCreatedById())
+                .updatedBy(user.getAdminUpdatedById())
                 .createdAt(user.getCreatedAt())
                 .updatedAt(user.getUpdatedAt())
                 .build();
@@ -322,6 +325,8 @@ public class SuperAdminService {
                 .isActive(user.getAccountStatus() == User.AccountStatus.ACTIVE)
                 .lastLogin(user.getLastLogin())
                 .lastLoginAt(user.getLastLogin())
+                .createdBy(user.getAdminCreatedById())
+                .updatedBy(user.getAdminUpdatedById())
                 .createdAt(user.getCreatedAt())
                 .updatedAt(user.getUpdatedAt())
                 .build();
@@ -341,6 +346,9 @@ public class SuperAdminService {
     private User.AdminRole parseAdminRole(String role) {
         if (role == null || role.isBlank()) {
             return User.AdminRole.ADMIN;
+        }
+        if ("SUPER_ADMIN".equalsIgnoreCase(role.trim())) {
+            throw new IllegalArgumentException("Super Admin accounts use the ADMIN role.");
         }
         try {
             return User.AdminRole.valueOf(role.trim().toUpperCase(Locale.ROOT));
@@ -387,15 +395,6 @@ public class SuperAdminService {
                     .grantedAt(LocalDateTime.now())
                     .build();
             adminPermissionRepository.save(permission);
-        }
-    }
-
-    private void preventRemovingLastSuperAdmin(User admin, User.AdminRole newRole) {
-        if (admin.getAdminRole() == User.AdminRole.SUPER_ADMIN
-                && newRole != User.AdminRole.SUPER_ADMIN
-                && userRepository.countByRoleAndAdminRoleAndAccountStatus(
-                        User.UserRole.ADMIN, User.AdminRole.SUPER_ADMIN, User.AccountStatus.ACTIVE) <= 1) {
-            throw new IllegalArgumentException("Cannot remove or suspend the last Super Admin.");
         }
     }
 

@@ -1,7 +1,6 @@
 package com.icastar.platform.repository;
 
 import com.icastar.platform.entity.User;
-import com.icastar.platform.entity.User.AdminRole;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -73,11 +72,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
             @Param("status") User.AccountStatus status,
             @Param("search") String search,
             Pageable pageable);
-
-    long countByRoleAndAdminRole(User.UserRole role, AdminRole adminRole);
-
-    long countByRoleAndAdminRoleAndAccountStatus(
-            User.UserRole role, AdminRole adminRole, User.AccountStatus accountStatus);
 
     Page<User> findByStatus(User.UserStatus status, Pageable pageable);
 

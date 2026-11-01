@@ -48,12 +48,12 @@ public class SuperAdminInitializer implements CommandLineRunner {
         var existingUser = userRepository.findByEmail(email.trim().toLowerCase(java.util.Locale.ROOT));
         if (existingUser.isPresent()) {
             User user = existingUser.get();
-            if (user.getRole() != User.UserRole.ADMIN || user.getAdminRole() != User.AdminRole.SUPER_ADMIN) {
+            if (user.getRole() != User.UserRole.ADMIN || user.getAdminRole() != User.AdminRole.ADMIN) {
                 user.setRole(User.UserRole.ADMIN);
-                user.setAdminRole(User.AdminRole.SUPER_ADMIN);
+                user.setAdminRole(User.AdminRole.ADMIN);
                 userRepository.save(user);
             }
-            log.info("Configured Super Admin role for account {}", user.getEmail());
+            log.info("Configured bootstrap admin account {}", user.getEmail());
         } else {
             if (password.isBlank() || mobile.isBlank()) {
                 log.warn("Super Admin bootstrap skipped: configure email, password and mobile together.");
@@ -66,7 +66,7 @@ public class SuperAdminInitializer implements CommandLineRunner {
             superAdmin.setLastName(lastName);
             superAdmin.setPassword(passwordEncoder.encode(password));
             superAdmin.setRole(User.UserRole.ADMIN);
-            superAdmin.setAdminRole(User.AdminRole.SUPER_ADMIN);
+            superAdmin.setAdminRole(User.AdminRole.ADMIN);
             superAdmin.setStatus(User.UserStatus.ACTIVE);
             superAdmin.setAccountStatus(User.AccountStatus.ACTIVE);
             superAdmin.setIsVerified(true);
@@ -74,7 +74,7 @@ public class SuperAdminInitializer implements CommandLineRunner {
             superAdmin.setFailedLoginAttempts(0);
             superAdmin.setLoginAttempts(0);
             userRepository.save(superAdmin);
-            log.info("Configured Super Admin account created.");
+            log.info("Bootstrap admin account created.");
         }
     }
 }

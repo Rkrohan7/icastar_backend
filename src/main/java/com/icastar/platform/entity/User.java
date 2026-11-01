@@ -44,6 +44,12 @@ public class User extends BaseEntity {
     @Column(name = "admin_role", nullable = false)
     private AdminRole adminRole = AdminRole.ADMIN;
 
+    @Column(name = "admin_created_by_id")
+    private Long adminCreatedById;
+
+    @Column(name = "admin_updated_by_id")
+    private Long adminUpdatedById;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
     private UserStatus status = UserStatus.ACTIVE;
